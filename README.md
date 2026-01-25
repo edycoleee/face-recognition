@@ -360,6 +360,7 @@ docker logs --tail=50 vite-frontend
 Akses aplikasi:
 - Frontend: `https://192.10.10.154`
 - API: `https://192.10.10.154/api`
+- Swagger UI `https://192.10.10.154/api/docs`
 
 Catatan:
 - Browser akan memberi peringatan karena sertifikat self-signed.
