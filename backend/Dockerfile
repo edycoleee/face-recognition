@@ -15,12 +15,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	libglib2.0-0 \
 	&& rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /app/.insightface
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Pre-download InsightFace model (buffalo_l)
+RUN python -c "from insightface.app import FaceAnalysis; app=FaceAnalysis(name='buffalo_l'); app.prepare(ctx_id=-1, det_size=(640,640))"
 
-RUN mkdir -p /app/.insightface
+COPY app ./app
 
 WORKDIR /app/app
 

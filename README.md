@@ -345,6 +345,8 @@ sh generate-self-signed.sh
 
 # Build dan jalankan semua services (reverse proxy + frontend + backend)
 docker compose up -d
+docker compose up -d --build
+
 
 # Stop services
 docker compose down
