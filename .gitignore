@@ -36,3 +36,6 @@ Thumbs.db
 coverage/
 htmlcov/
 .pytest_cache/
+
+# Docker SSL (local)
+docker/prod/ssl/*

@@ -336,15 +336,32 @@ curl -X POST http://localhost:5000/api/detect/image \
 
 ---
 
-## 🐳 Docker Setup (Coming Soon)
+## 🐳 Docker Setup 
 
 ```bash
-# Build dan jalankan semua services
-docker-compose up -d
+# Generate SSL self-signed (LAN)
+cd docker/prod
+sh generate-self-signed.sh
+
+# Build dan jalankan semua services (reverse proxy + frontend + backend)
+docker compose up -d
 
 # Stop services
-docker-compose down
+docker compose down
+
+
+docker logs --tail=50 reverse-proxy
+docker logs --tail=80 flask-backend
+docker logs --tail=50 vite-frontend
 ```
+
+Akses aplikasi:
+- Frontend: `https://192.10.10.154`
+- API: `https://192.10.10.154/api`
+
+Catatan:
+- Browser akan memberi peringatan karena sertifikat self-signed.
+- Untuk akses kamera dari IP lain, HTTPS wajib (non-`localhost`).
 
 ---
 
@@ -355,7 +372,7 @@ git init
 git add .
 git commit -m "Add face detection feature"
 git branch -M main
-git remote add origin https://github.com/edycoleee/flask-face.git
+git remote add origin https://github.com/edycoleee/face-recognition.git
 git push -u origin main
 ```
 
