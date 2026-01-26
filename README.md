@@ -402,4 +402,4 @@ MIT License
 
 ## 👨‍💻 Author
 
-Edy
+Edy Cole
