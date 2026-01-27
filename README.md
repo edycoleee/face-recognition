@@ -38,6 +38,20 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - Confidence scoring & top-5 matches
 - Real-time prediction dari webcam
 
+### Tahap 5 : Optimalisasi face recognition and detection for auth
+- input user
+- 1:1 Face identification (compare dengan semua user)
+- login get token
+
+### Tahap 6 : Attendance from manual capture camera
+- input user
+- 1:1 Face identification (compare dengan semua user)
+- jika tertangkap di kamera maka insert attendance_logs, jika sebelum 1 jam maka tidak insert log lagi, jika >1jam maka insert log lagi
+
+### Tahap 7 : Attendance from camera
+- 1:N Face identification (compare dengan semua user)
+- jika tertangkap di kamera maka insert attendance_logs, jika sebelum 1 jam maka tidak insert log lagi, jika >1jam maka insert log lagi
+
 ---
 
 ## 🚀 Setup & Installation
