@@ -20,11 +20,14 @@ pgvector>=0.2.4  # PostgreSQL vector extension support
 insightface>=0.7.3
 onnxruntime>=1.23.0
 
-# Image Processing
+# Image Processing & Computer Vision
+# IMPORTANT: opencv versi 4.9.0.80 compatible dengan numpy<2.0
+# Jangan upgrade ke 4.10+ karena require numpy>=2.0
+opencv-python-headless==4.9.0.80
 Pillow>=10.0.0
-opencv-python-headless>=4.9.0
 
 # Machine Learning & Math
+# IMPORTANT: numpy harus <2.0 untuk compatibility dengan scipy, insightface, opencv
 numpy>=1.24.0,<2.0.0
 scikit-learn>=1.3.0
 

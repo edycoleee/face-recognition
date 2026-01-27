@@ -1,0 +1,57 @@
+.face-detection-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.face-detection-page .back-button {
+  background: white;
+  color: #2c3e50;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  max-width: 1200px;
+  width: 100%;
+  text-align: center;
+}
+
+.face-detection-page .back-button:hover {
+  transform: translateX(-5px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.face-detection-page h1 {
+  color: white;
+  text-align: center;
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  font-weight: 700;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.face-detection-page .subtitle {
+  color: white;
+  text-align: center;
+  margin: 0 0 2rem 0;
+  opacity: 0.9;
+  font-size: 1.1rem;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.face-detection-page .detection-content {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}

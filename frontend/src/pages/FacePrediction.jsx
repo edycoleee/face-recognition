@@ -1,0 +1,320 @@
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import './FacePrediction.css'
+
+function FacePrediction() {
+  const navigate = useNavigate()
+  const { userId } = useParams()
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
+  
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [currentStatus, setCurrentStatus] = useState('')
+  const [predictionResult, setPredictionResult] = useState(null)
+  const [capturedImage, setCapturedImage] = useState(null)
+  
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+  useEffect(() => {
+    fetchUser()
+    return () => {
+      stopCamera()
+    }
+  }, [userId])
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/${userId}`)
+      const data = await res.json()
+      if (data.success) {
+        setUser(data.data)
+      } else {
+        setError(data.message)
+      }
+    } catch (err) {
+      setError('Failed to fetch user: ' + err.message)
+    }
+  }
+
+  const startCamera = async () => {
+    try {
+      setError(null)
+      setCurrentStatus('📷 Starting camera...')
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        }
+      })
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        streamRef.current = stream
+        
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play()
+            .then(() => {
+              setCameraActive(true)
+              setCurrentStatus('✅ Camera ready')
+              setTimeout(() => setCurrentStatus(''), 2000)
+            })
+            .catch(err => {
+              setError('Failed to play video: ' + err.message)
+            })
+        }
+      }
+    } catch (err) {
+      setError('Camera access denied: ' + err.message)
+      setCurrentStatus('❌ Camera failed')
+    }
+  }
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
+  }
+
+  const captureAndPredict = async () => {
+    if (!videoRef.current || !canvasRef.current) return
+    
+    setLoading(true)
+    setCurrentStatus('📸 Capturing...')
+    setPredictionResult(null)
+    
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    
+    if (!video.videoWidth || !video.videoHeight) {
+      setCurrentStatus('⏳ Waiting for camera...')
+      setLoading(false)
+      return
+    }
+    
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0)
+    
+    const imageData = canvas.toDataURL('image/jpeg', 0.95)
+    setCapturedImage(imageData)
+
+    try {
+      setCurrentStatus('🔍 Identifying face...')
+      
+      const res = await fetch(`${API_BASE_URL}/identify/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          image: imageData,
+          threshold: 0.6
+        })
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        setPredictionResult(data.data)
+        if (data.data.identified) {
+          setCurrentStatus(`✅ Identified: ${data.data.user_name}`)
+        } else {
+          setCurrentStatus('❌ No match found')
+        }
+      } else {
+        setError(data.message)
+        setCurrentStatus('❌ Prediction failed')
+      }
+    } catch (err) {
+      setError('Prediction error: ' + err.message)
+      setCurrentStatus('❌ Error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetPrediction = () => {
+    setPredictionResult(null)
+    setCapturedImage(null)
+    setCurrentStatus('')
+    setError(null)
+  }
+
+  if (!user) {
+    return <div className="loading">Loading user...</div>
+  }
+
+  return (
+    <div className="face-prediction-page">
+      <button className="back-button" onClick={() => navigate('/users')}>
+        ← Back to Users
+      </button>
+
+      <div className="prediction-header">
+        <h1>Face Prediction</h1>
+        <p className="user-info">Testing prediction for reference: <strong>{user.name}</strong></p>
+        <p className="subtitle">Capture a face to identify who it matches in the database</p>
+      </div>
+
+      <div className="prediction-content">
+        {/* Camera Section */}
+        <div className="camera-section">
+          <div className="camera-container">
+            {!cameraActive && (
+              <div className="camera-placeholder">
+                <p>📷</p>
+                <button onClick={startCamera} className="btn-start-camera">
+                  Start Camera
+                </button>
+              </div>
+            )}
+            
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="video-preview"
+              style={{ display: cameraActive ? 'block' : 'none' }}
+            />
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+          </div>
+
+          {currentStatus && (
+            <div className="status-message">
+              {currentStatus}
+            </div>
+          )}
+
+          {cameraActive && (
+            <div className="camera-controls">
+              <button
+                onClick={captureAndPredict}
+                disabled={loading}
+                className="btn-predict"
+              >
+                {loading ? '⏳ Predicting...' : '🔍 Capture & Predict'}
+              </button>
+              <button onClick={stopCamera} className="btn-stop-camera">
+                Stop Camera
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Results Section */}
+        <div className="results-section">
+          <h3>Prediction Results</h3>
+          
+          {capturedImage && (
+            <div className="captured-preview">
+              <img src={capturedImage} alt="Captured" />
+            </div>
+          )}
+
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
+          {predictionResult && (
+            <div className="result-card">
+              {predictionResult.identified ? (
+                <>
+                  <div className="result-header success">
+                    <h2>✅ Match Found!</h2>
+                  </div>
+                  <div className="result-body">
+                    <div className="result-item">
+                      <span className="label">Identified As:</span>
+                      <span className="value">{predictionResult.user_name}</span>
+                    </div>
+                    <div className="result-item">
+                      <span className="label">Email:</span>
+                      <span className="value">{predictionResult.user_email}</span>
+                    </div>
+                    <div className="result-item">
+                      <span className="label">Confidence:</span>
+                      <span className="value confidence">{predictionResult.confidence}%</span>
+                    </div>
+                    <div className="result-item">
+                      <span className="label">Similarity Score:</span>
+                      <span className="value">{predictionResult.similarity_score}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="result-header failure">
+                    <h2>❌ No Match Found</h2>
+                  </div>
+                  <div className="result-body">
+                    <p>{predictionResult.message}</p>
+                    <div className="result-item">
+                      <span className="label">Best Confidence:</span>
+                      <span className="value">{predictionResult.confidence}%</span>
+                    </div>
+                    <div className="result-item">
+                      <span className="label">Threshold:</span>
+                      <span className="value">{predictionResult.threshold}%</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {predictionResult.top_matches && predictionResult.top_matches.length > 0 && (
+                <div className="top-matches">
+                  <h4>Top Matches:</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Confidence</th>
+                        <th>Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {predictionResult.top_matches.map((match, idx) => (
+                        <tr key={idx} className={idx === 0 && predictionResult.identified ? 'highlight' : ''}>
+                          <td>{idx + 1}</td>
+                          <td>{match.user_name}</td>
+                          <td>{match.confidence}%</td>
+                          <td>{match.similarity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <button onClick={resetPrediction} className="btn-reset">
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {!predictionResult && !error && (
+            <div className="empty-state">
+              <p>📷 Start camera and capture to see prediction results</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default FacePrediction

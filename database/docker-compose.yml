@@ -1,0 +1,57 @@
+# ============================================================
+# DATABASE SERVICE ONLY
+# ============================================================
+# PostgreSQL + pgAdmin for face recognition system
+# Usage: docker-compose -f docker-compose.db.yml up -d
+# ============================================================
+
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: face-db-postgres
+    environment:
+      POSTGRES_DB: face_db
+      POSTGRES_USER: sultan
+      POSTGRES_PASSWORD: Sulfat123#!
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "192.168.171.184:5432:5432"
+    volumes:
+      # Init script for first-time setup
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Persistent data storage
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sultan -d face_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - face_network
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: face-db-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_ADDRESS: 0.0.0.0
+    ports:
+      - "192.168.171.184:5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - face_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  face_network:
+    name: face_network
+    driver: bridge
