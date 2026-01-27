@@ -1,6 +1,7 @@
 # app/api/detect.py
 from flask import request, send_file
 from flask_restx import Namespace, Resource, fields
+from werkzeug.datastructures import FileStorage
 from services.detection_service import (
     detect_faces_from_image,
     detect_faces_from_base64,
@@ -26,10 +27,16 @@ video_frame_input = api.model("VideoFrameInput", {
     "frame": fields.String(required=True, description="Base64 encoded video frame")
 })
 
+# File upload parser for Swagger
+upload_parser = api.parser()
+upload_parser.add_argument('file', location='files', type=FileStorage, required=True, help='Image file')
+
 @api.route("/image")
 class DetectFromImage(Resource):
     @api.doc("detect_faces_from_uploaded_image")
+    @api.expect(upload_parser)
     @api.response(200, "Success", detect_response)
+    @api.response(400, "Bad Request")
     def post(self):
         """Detect faces from uploaded image file"""
         if 'file' not in request.files:
@@ -55,6 +62,7 @@ class DetectFromBase64(Resource):
     @api.doc("detect_faces_from_base64")
     @api.expect(base64_input)
     @api.response(200, "Success", detect_response)
+    @api.response(400, "Bad Request")
     def post(self):
         """Detect faces from base64 encoded image"""
         data = request.get_json()
@@ -74,6 +82,10 @@ class DetectFromBase64(Resource):
 
 @api.route("/image/annotated")
 class DetectAndDrawImage(Resource):
+    @api.expect(upload_parser)
+    @api.response(200, "Success - Returns annotated image")
+    @api.response(400, "Bad Request")
+    @api.produces(['image/jpeg'])
     @api.doc("detect_and_draw_faces")
     def post(self):
         """Detect faces and return annotated image"""
@@ -109,6 +121,7 @@ class DetectFromVideoFrame(Resource):
     @api.doc("detect_faces_from_video_frame")
     @api.expect(video_frame_input)
     @api.response(200, "Success", detect_response)
+    @api.response(400, "Bad Request")
     def post(self):
         """Detect faces from a single video frame (base64 encoded)"""
         data = request.get_json()
@@ -130,6 +143,7 @@ class DetectFromVideoFrame(Resource):
 class DetectFromWebcam(Resource):
     @api.doc("detect_faces_from_webcam")
     @api.expect(base64_input)
+    @api.response(400, "Bad Request")
     @api.response(200, "Success", detect_response)
     def post(self):
         """Detect faces from webcam capture (base64 encoded)"""
