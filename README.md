@@ -532,7 +532,24 @@ Verify face matches specific user (1:1 verification).
 │   │   │   ├── FaceDetection.jsx          # Face detection component
 │   │   │   └── FaceDetection.css
 │   Database Setup
+│   ├── docker-compose.yml                 # PostgreSQL + pgAdmin
+│   ├── init.sql                           # Database schema
+│   └── apply_schema.sh                    # Schema update script
+├── docker/
+│   ├── dev/
+│   │   └── docker-compose.yml
+│   └── prod/
+│       ├── docker-compose.yml
+│       ├── generate-self-signed.sh
+│       └── nginx.conf
+├── QUICKSTART.md
+├── CONTINUOUS_DETECTION_IMPROVEMENTS.mdkage.json
+│   └── vite.config.js
+├── database/
+├── docker/
+└── README.md
 ```
+
 ```bash
 # Start PostgreSQL + pgAdmin
 cd database
@@ -691,24 +708,6 @@ WITH (lists = 100);
       - Best confidence: 45.2%
       - Threshold: 60.0%
       - Top 5 closest matches
-│   ├── docker-compose.yml                 # PostgreSQL + pgAdmin
-│   ├── init.sql                           # Database schema
-│   └── apply_schema.sh                    # Schema update script
-├── docker/
-│   ├── dev/
-│   │   └── docker-compose.yml
-│   └── prod/
-│       ├── docker-compose.yml
-│       ├── generate-self-signed.sh
-│       └── nginx.conf
-├── QUICKSTART.md
-├── CONTINUOUS_DETECTION_IMPROVEMENTS.mdkage.json
-│   └── vite.config.js
-├── database/
-├── docker/
-└── README.md
-```
-
 ---
 
 ## 🔧 Development
