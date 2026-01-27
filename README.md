@@ -496,8 +496,8 @@ Verify face matches specific user (1:1 verification).
 - **pgAdmin** - Database management
 
 ---
-
-#ace-recognition/
+```
+#Face-recognition/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
@@ -532,7 +532,7 @@ Verify face matches specific user (1:1 verification).
 │   │   │   ├── FaceDetection.jsx          # Face detection component
 │   │   │   └── FaceDetection.css
 │   Database Setup
-
+```
 ```bash
 # Start PostgreSQL + pgAdmin
 cd database
