@@ -1,0 +1,604 @@
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import './FaceRegistration.css'
+
+function FaceRegistration() {
+  const navigate = useNavigate()
+  const { userId } = useParams()
+  const [searchParams] = useSearchParams()
+  const mode = searchParams.get('mode') || 'register' // 'register' or 'update'
+  
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const overlayCanvasRef = useRef(null) // Canvas untuk oval guide
+  const streamRef = useRef(null) // Store stream reference
+  const capturesRef = useRef([]) // Track latest captures for auto-submit
+  
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [captureMode, setCaptureMode] = useState('manual') // 'manual' or 'auto'
+  const [captures, setCaptures] = useState([])
+  const [currentStatus, setCurrentStatus] = useState('')
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [autoInterval, setAutoInterval] = useState(null)
+  const [faceInPosition, setFaceInPosition] = useState(false)
+  const [existingFaceCount, setExistingFaceCount] = useState(0)
+  
+  const TARGET_CAPTURES = 10
+  const AUTO_INTERVAL_MS = 2000 // 2 seconds
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+  useEffect(() => {
+    fetchUser()
+    if (mode === 'update') {
+      fetchExistingFaceCount()
+    }
+    return () => {
+      stopCamera()
+    }
+  }, [userId])
+
+  // Auto-stop interval when reaching target captures
+  useEffect(() => {
+    if (captures.length >= TARGET_CAPTURES && autoInterval && captureMode === 'auto') {
+      stopAutoCapture()
+    }
+  }, [captures.length, autoInterval, captureMode])
+
+  // Sync captures to ref for auto-submit
+  useEffect(() => {
+    capturesRef.current = captures
+  }, [captures])
+
+  // Draw oval guide when camera is active
+  useEffect(() => {
+    if (cameraActive && overlayCanvasRef.current && videoRef.current) {
+      const drawOvalGuide = () => {
+        const video = videoRef.current
+        const canvas = overlayCanvasRef.current
+        
+        if (!video.videoWidth || !video.videoHeight) return
+        
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        
+        const ctx = canvas.getContext('2d')
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        
+        // Calculate oval dimensions (70% of frame)
+        const centerX = canvas.width / 2
+        const centerY = canvas.height / 2
+        const radiusX = canvas.width * 0.30  // 60% width
+        const radiusY = canvas.height * 0.40 // 80% height
+        
+        // Draw semi-transparent overlay outside oval
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        
+        // Cut out oval area
+        ctx.globalCompositeOperation = 'destination-out'
+        ctx.beginPath()
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI)
+        ctx.fill()
+        
+        // Draw oval border
+        ctx.globalCompositeOperation = 'source-over'
+        ctx.beginPath()
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI)
+        ctx.strokeStyle = faceInPosition ? '#00ff00' : '#00ffff'  // Green if face in position, cyan otherwise
+        ctx.lineWidth = 3
+        ctx.setLineDash([10, 5])
+        ctx.stroke()
+        
+        // Draw instruction text
+        ctx.fillStyle = '#ffffff'
+        ctx.font = 'bold 18px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('Position your face inside the oval', centerX, 40)
+        
+        ctx.font = '14px Arial'
+        ctx.fillText('Look straight at the camera', centerX, canvas.height - 30)
+        
+        requestAnimationFrame(drawOvalGuide)
+      }
+      
+      drawOvalGuide()
+    }
+  }, [cameraActive, faceInPosition])
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/${userId}`)
+      const data = await res.json()
+      if (data.success) {
+        setUser(data.data)
+      } else {
+        setError(data.message)
+      }
+    } catch (err) {
+      setError('Failed to fetch user: ' + err.message)
+    }
+  }
+
+  const fetchExistingFaceCount = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/face/users/${userId}/embeddings`)
+      const data = await res.json()
+      if (data.success) {
+        setExistingFaceCount(data.data.embeddings_count || 0)
+      }
+    } catch (err) {
+      console.error('Failed to fetch existing face count:', err)
+    }
+  }
+
+  const startCamera = async () => {
+    try {
+      setError(null)
+      setCurrentStatus('📷 Starting camera...')
+      console.log('1. Requesting camera access...')
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        }
+      })
+      
+      console.log('2. Got stream:', stream)
+      
+      if (videoRef.current) {
+        console.log('3. Setting srcObject to video element')
+        videoRef.current.srcObject = stream
+        streamRef.current = stream
+        
+        // Wait for video to load and play
+        videoRef.current.onloadedmetadata = () => {
+          console.log('4. Metadata loaded, playing video...')
+          videoRef.current.play()
+            .then(() => {
+              console.log('5. ✅ Video playing successfully')
+              setCameraActive(true)
+              setCurrentStatus('✅ Camera ready')
+              setTimeout(() => setCurrentStatus(''), 2000)
+            })
+            .catch(err => {
+              console.error('5. ❌ Play error:', err)
+              setError('Failed to play video: ' + err.message)
+            })
+        }
+      } else {
+        console.error('3. ❌ videoRef.current is null')
+        setError('Video element not found')
+      }
+    } catch (err) {
+      console.error('Camera error:', err)
+      setError('Camera access denied: ' + err.message)
+      setCurrentStatus('❌ Camera failed')
+      setCameraActive(false)
+    }
+  }
+
+  const stopCamera = () => {
+    // Stop stream tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    
+    // Clear video element
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    
+    setCameraActive(false)
+    
+    // Clear auto capture interval
+    if (autoInterval) {
+      clearInterval(autoInterval)
+      setAutoInterval(null)
+    }
+  }
+
+  const captureFrame = () => {
+    if (!videoRef.current || !canvasRef.current) {
+      setCurrentStatus('❌ Camera not ready')
+      return null
+    }
+    
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    
+    // Check if video is ready
+    if (!video.videoWidth || !video.videoHeight) {
+      setCurrentStatus('⏳ Waiting for camera...')
+      return null
+    }
+    
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0)
+    
+    return canvas.toDataURL('image/jpeg', 0.95)
+  }
+
+  const validateAndCapture = async () => {
+    if (isCapturing) return
+    
+    setIsCapturing(true)
+    setCurrentStatus('📸 Capturing...')
+    
+    const imageData = captureFrame()
+    if (!imageData) {
+      setCurrentStatus('❌ Capture failed')
+      setIsCapturing(false)
+      return
+    }
+
+    try {
+      // Validate face
+      setCurrentStatus('🔍 Validating face...')
+      const validateRes = await fetch(`${API_BASE_URL}/face/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+      })
+      
+      const validateData = await validateRes.json()
+      
+      if (validateData.success) {
+        // Check if face is within oval guide area
+        const faceData = validateData.data
+        const canvas = overlayCanvasRef.current
+        
+        if (canvas) {
+          const centerX = canvas.width / 2
+          const centerY = canvas.height / 2
+          const radiusX = canvas.width * 0.30
+          const radiusY = canvas.height * 0.40
+          
+          // Calculate face center from bbox
+          const [x1, y1, x2, y2] = faceData.bbox
+          const faceCenterX = (x1 + x2) / 2
+          const faceCenterY = (y1 + y2) / 2
+          
+          // Check if face center is within oval (ellipse equation)
+          const dx = (faceCenterX - centerX) / radiusX
+          const dy = (faceCenterY - centerY) / radiusY
+          const isInOval = (dx * dx + dy * dy) <= 1
+          
+          setFaceInPosition(isInOval)
+          
+          if (!isInOval) {
+            setCurrentStatus('⚠️ Move your face inside the oval guide')
+            setIsCapturing(false)
+            return
+          }
+        }
+        
+        // Face is valid and in position, add to captures
+        const newCapture = {
+          id: Date.now(),
+          image: imageData,
+          faceData: validateData.data,
+          timestamp: new Date().toLocaleTimeString()
+        }
+        
+        setCaptures(prev => {
+          const updated = [...prev, newCapture]
+          
+          // Check if we reached target in auto mode
+          if (updated.length >= TARGET_CAPTURES && captureMode === 'auto') {
+            setTimeout(() => {
+              stopAutoCapture()
+              setCurrentStatus('✅ All 10 captures completed! Submitting...')
+              // Auto-submit after reaching target using ref for latest data
+              setTimeout(() => {
+                submitRegistrationAuto()
+              }, 1000)
+            }, 500)
+          }
+          
+          return updated
+        })
+        setCurrentStatus(`✅ Captured ${captures.length + 1}/${TARGET_CAPTURES}`)
+      } else {
+        setCurrentStatus(`❌ ${validateData.message}`)
+      }
+    } catch (err) {
+      setCurrentStatus('❌ Validation error: ' + err.message)
+    } finally {
+      setIsCapturing(false)
+    }
+  }
+
+  const startAutoCapture = () => {
+    if (autoInterval) return
+    
+    setCaptureMode('auto')
+    setCurrentStatus('🎬 Auto capture started...')
+    
+    // Immediate first capture
+    validateAndCapture()
+    
+    // Then every 2 seconds
+    const interval = setInterval(() => {
+      validateAndCapture()
+    }, AUTO_INTERVAL_MS)
+    
+    setAutoInterval(interval)
+  }
+
+  const stopAutoCapture = () => {
+    if (autoInterval) {
+      clearInterval(autoInterval)
+      setAutoInterval(null)
+    }
+    setCurrentStatus('⏸️ Auto capture stopped')
+  }
+
+  const deleteCapture = (id) => {
+    setCaptures(prev => prev.filter(c => c.id !== id))
+  }
+
+  const resetCaptures = () => {
+    setCaptures([])
+    setCurrentStatus('')
+  }
+
+  const submitRegistration = async () => {
+    if (captures.length < 5) {
+      setError('Please capture at least 5 images')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const images = captures.map(c => c.image)
+      
+      const res = await fetch(`${API_BASE_URL}/face/users/${userId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        setCurrentStatus(`✅ Registered ${data.data.successful}/${data.data.total} faces!`)
+        setTimeout(() => {
+          navigate('/users')
+        }, 1500)
+      } else {
+        setError(data.message)
+        setLoading(false)
+      }
+    } catch (err) {
+      setError('Registration failed: ' + err.message)
+      setLoading(false)
+    }
+  }
+
+  // Separate function for auto-submit using ref
+  const submitRegistrationAuto = async () => {
+    const currentCaptures = capturesRef.current
+    
+    if (currentCaptures.length < 5) {
+      setError('Please capture at least 5 images')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const images = currentCaptures.map(c => c.image)
+      
+      const res = await fetch(`${API_BASE_URL}/face/users/${userId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        setCurrentStatus(`✅ Registered ${data.data.successful}/${data.data.total} faces!`)
+        setTimeout(() => {
+          navigate('/users')
+        }, 1500)
+      } else {
+        setError(data.message)
+        setLoading(false)
+      }
+    } catch (err) {
+      setError('Registration failed: ' + err.message)
+      setLoading(false)
+    }
+  }
+
+  if (!user) {
+    return <div className="loading">Loading user...</div>
+  }
+
+  return (
+    <div className="face-registration-page">
+      <button className="back-button" onClick={() => navigate('/users')}>
+        ← Back to Users
+      </button>
+
+      <div className="registration-header">
+        <h1>{mode === 'update' ? 'Update Face Data' : 'Register Face'}</h1>
+        <p className="user-info">
+          {mode === 'update' ? 'Adding more face data for: ' : 'Registering face for: '}
+          <strong>{user.name}</strong>
+        </p>
+        {mode === 'update' && existingFaceCount > 0 && (
+          <p className="existing-count">
+            Currently has <strong>{existingFaceCount}</strong> face images registered
+          </p>
+        )}
+      </div>
+
+      <div className="registration-content">
+        {/* Camera Section */}
+        <div className="camera-section">
+          <div className="camera-container" style={{ position: 'relative' }}>
+            {!cameraActive && (
+              <div className="camera-placeholder">
+                <p>📷</p>
+                <button onClick={startCamera} className="btn-start-camera">
+                  Start Camera
+                </button>
+              </div>
+            )}
+            
+            {/* Always render video element, but hide when not active */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="video-preview"
+              style={{ display: cameraActive ? 'block' : 'none' }}
+            />
+            
+            {/* Oval guide overlay */}
+            <canvas 
+              ref={overlayCanvasRef}
+              className="overlay-canvas"
+              style={{ 
+                display: cameraActive ? 'block' : 'none',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none'
+              }}
+            />
+            
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+          </div>
+
+          {/* Status */}
+          {currentStatus && (
+            <div className="status-message">
+              {currentStatus}
+            </div>
+          )}
+
+          {/* Controls */}
+          {cameraActive && !loading && (
+            <div className="camera-controls">
+              <div className="mode-buttons">
+                <button
+                  onClick={() => {
+                    stopAutoCapture()
+                    setCaptureMode('manual')
+                  }}
+                  className={captureMode === 'manual' ? 'active' : ''}
+                  disabled={isCapturing || captures.length >= TARGET_CAPTURES}
+                >
+                  Manual Capture
+                </button>
+                <button
+                  onClick={startAutoCapture}
+                  className={captureMode === 'auto' && autoInterval ? 'active' : ''}
+                  disabled={isCapturing || captures.length >= TARGET_CAPTURES || autoInterval}
+                >
+                  Auto Capture (10 pics)
+                </button>
+                {autoInterval && (
+                  <button onClick={stopAutoCapture} className="btn-stop">
+                    ⏸️ Stop Auto
+                  </button>
+                )}
+              </div>
+
+              {captureMode === 'manual' && captures.length < TARGET_CAPTURES && !autoInterval && (
+                <button
+                  onClick={validateAndCapture}
+                  disabled={isCapturing}
+                  className="btn-capture"
+                >
+                  📸 Capture ({captures.length}/{TARGET_CAPTURES})
+                </button>
+              )}
+
+              {captures.length < TARGET_CAPTURES && (
+                <button onClick={stopCamera} className="btn-stop-camera">
+                  Stop Camera
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Captures Grid */}
+        <div className="captures-section">
+          <div className="captures-header">
+            <h3>Captured Images ({captures.length}/{TARGET_CAPTURES})</h3>
+            {captures.length > 0 && (
+              <button onClick={resetCaptures} className="btn-reset">
+                Clear All
+              </button>
+            )}
+          </div>
+
+          <div className="captures-grid">
+            {captures.map((capture) => (
+              <div key={capture.id} className="capture-item">
+                <img src={capture.image} alt="Captured face" />
+                <div className="capture-info">
+                  <span className="capture-time">{capture.timestamp}</span>
+                  <span className="capture-score">
+                    {(capture.faceData.confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <button
+                  onClick={() => deleteCapture(capture.id)}
+                  className="btn-delete-capture"
+                  disabled={loading}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {loading && (
+            <div className="loading-message">
+              <div className="spinner"></div>
+              <p>⏳ {mode === 'update' ? 'Adding' : 'Registering'} {captures.length} faces to database...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
+          {captures.length >= 5 && !loading && (
+            <button
+              onClick={submitRegistration}
+              className="btn-submit"
+            >
+              {mode === 'update' ? `Add ${captures.length} More Faces` : `Register ${captures.length} Faces`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default FaceRegistration

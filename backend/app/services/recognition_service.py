@@ -5,6 +5,7 @@ from insightface.app import FaceAnalysis
 from utils.logger import logger
 from utils.db import get_db_connection, get_db_cursor
 from datetime import datetime
+from config import FACE_RECOGNITION_CONFIG
 import os
 
 # Initialize InsightFace app for face recognition
@@ -136,17 +137,160 @@ def save_face_embedding(user_id, embedding, quality_score, image_path=None):
         logger.error(f"Error saving embedding: {str(e)}")
         return False, f"Database error: {str(e)}", None
 
-def register_face_images(user_id, images):
+def register_face_images(user_id, images, strategy=None):
     """
-    Register multiple face images for a user
-    images: list of base64 encoded images
+    Register multiple face images for a user using optimized strategy
+    
+    Args:
+        user_id: User ID
+        images: list of base64 encoded images
+        strategy: 'averaging' (default), 'save_all', 'topk' - if None, uses config
+    
     Returns: (success, message, results)
+    """
+    try:
+        # Get strategy from config if not specified
+        if strategy is None:
+            strategy = FACE_RECOGNITION_CONFIG['embedding_strategy']
+        
+        logger.info(f"Registering faces for user {user_id} using strategy: {strategy}")
+        
+        if strategy == 'averaging':
+            return register_face_images_averaged(user_id, images)
+        elif strategy == 'save_all':
+            return register_face_images_all(user_id, images)
+        else:
+            # Default to averaging for unknown strategies
+            logger.warning(f"Unknown strategy '{strategy}', defaulting to 'averaging'")
+            return register_face_images_averaged(user_id, images)
+            
+    except Exception as e:
+        logger.error(f"Error in register_face_images: {str(e)}")
+        return False, f"Registration error: {str(e)}", None
+
+def register_face_images_averaged(user_id, images):
+    """
+    METODE A: Averaging Method - Optimal untuk efisiensi & akurasi
+    
+    Process:
+    1. Extract semua embeddings dengan quality score
+    2. Filter hanya high quality (> 0.9)
+    3. Average top embeddings
+    4. Normalize
+    5. Save 1 embedding
+    
+    Returns: (success, message, results)
+    """
+    try:
+        embeddings_data = []
+        results = {
+            'total': len(images),
+            'processed': 0,
+            'failed': 0,
+            'strategy': 'averaging',
+            'embeddings': [],
+            'errors': []
+        }
+        
+        # Step 1: Extract all embeddings with quality scores
+        for idx, image in enumerate(images):
+            # Validate and extract
+            success_val, msg_val, face_data = validate_single_face(image)
+            
+            if success_val:
+                # Extract embedding
+                success_emb, msg_emb, embedding = extract_face_embedding(image)
+                
+                if success_emb:
+                    quality = face_data.get('confidence', 0.8)
+                    embeddings_data.append({
+                        'embedding': np.array(embedding, dtype=np.float32),
+                        'quality': float(quality),
+                        'index': idx + 1
+                    })
+                    results['processed'] += 1
+                else:
+                    results['failed'] += 1
+                    results['errors'].append({
+                        'index': idx + 1,
+                        'error': msg_emb
+                    })
+            else:
+                results['failed'] += 1
+                results['errors'].append({
+                    'index': idx + 1,
+                    'error': msg_val
+                })
+        
+        # Check minimum requirements
+        if len(embeddings_data) < 3:
+            return False, f"Need at least 3 valid images, got {len(embeddings_data)}", results
+        
+        # Step 2: Filter high quality or fallback to top K
+        config = FACE_RECOGNITION_CONFIG['averaging']
+        MIN_QUALITY = config['min_quality_threshold']
+        FALLBACK_TOP_K = config['fallback_top_k']
+        
+        high_quality = [e for e in embeddings_data if e['quality'] >= MIN_QUALITY]
+        
+        if len(high_quality) >= 3:
+            selected = high_quality
+            logger.info(f"Using {len(selected)} high-quality embeddings (quality >= {MIN_QUALITY})")
+        else:
+            # Fallback: sort by quality and take top K
+            embeddings_data.sort(key=lambda x: x['quality'], reverse=True)
+            selected = embeddings_data[:FALLBACK_TOP_K]
+            logger.info(f"Using top {len(selected)} embeddings (fallback mode)")
+        
+        # Step 3: Calculate average embedding
+        embeddings_array = np.array([e['embedding'] for e in selected], dtype=np.float32)
+        avg_embedding = np.mean(embeddings_array, axis=0)
+        
+        # Step 4: Normalize (crucial for cosine similarity)
+        norm = np.linalg.norm(avg_embedding)
+        if norm > 0:
+            avg_embedding = avg_embedding / norm
+        
+        # Step 5: Calculate average quality
+        avg_quality = float(np.mean([e['quality'] for e in selected]))
+        
+        # Step 6: Save single averaged embedding
+        save_success, save_message, embedding_id = save_face_embedding(
+            user_id=user_id,
+            embedding=avg_embedding.tolist(),
+            quality_score=avg_quality
+        )
+        
+        if save_success:
+            results['successful'] = 1
+            results['embeddings'].append({
+                'id': embedding_id,
+                'type': 'averaged',
+                'source_count': len(selected),
+                'avg_quality': avg_quality
+            })
+            
+            logger.info(f"Saved averaged embedding for user {user_id}: "
+                       f"{len(selected)} images averaged, quality={avg_quality:.3f}")
+            
+            return True, f"Successfully registered face (averaged from {len(selected)} images)", results
+        else:
+            return False, f"Failed to save embedding: {save_message}", results
+            
+    except Exception as e:
+        logger.error(f"Error in register_face_images_averaged: {str(e)}")
+        return False, f"Registration error: {str(e)}", None
+
+def register_face_images_all(user_id, images):
+    """
+    Legacy method: Save all embeddings (backward compatibility)
     """
     try:
         results = {
             'total': len(images),
             'successful': 0,
             'failed': 0,
+            'strategy': 'save_all',
             'embeddings': [],
             'errors': []
         }
@@ -156,11 +300,15 @@ def register_face_images(user_id, images):
             success, message, embedding = extract_face_embedding(image)
             
             if success:
+                # Get quality score
+                _, _, face_data = validate_single_face(image)
+                quality = face_data.get('confidence', 0.95)
+                
                 # Save to database
                 save_success, save_message, embedding_id = save_face_embedding(
                     user_id=user_id,
                     embedding=embedding,
-                    quality_score=0.95  # You can extract actual score from face_data
+                    quality_score=quality
                 )
                 
                 if save_success:
@@ -188,7 +336,7 @@ def register_face_images(user_id, images):
             return False, "Failed to register any faces", results
             
     except Exception as e:
-        logger.error(f"Error in register_face_images: {str(e)}")
+        logger.error(f"Error in register_face_images_all: {str(e)}")
         return False, f"Registration error: {str(e)}", None
 
 def get_user_embeddings(user_id):

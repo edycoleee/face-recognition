@@ -26,11 +26,6 @@ function FaceRegistration() {
   const [error, setError] = useState(null)
   const [currentStatus, setCurrentStatus] = useState('')
   const [existingFaceCount, setExistingFaceCount] = useState(0)
-  const [inputMethod, setInputMethod] = useState('camera') // 'camera', 'upload-single', 'upload-multiple'
-  const fileInputRef = useCallback(() => {
-    const ref = { current: null }
-    return ref
-  }, [])()
 
   // Fetch user data
   useEffect(() => {
@@ -127,59 +122,6 @@ function FaceRegistration() {
     }
   }, [camera, capture, validateFace, checkFacePosition])
 
-  // Handle file upload (single or multiple)
-  const handleFileUpload = useCallback(async (event) => {
-    const files = Array.from(event.target.files)
-    if (files.length === 0) return
-
-    setLoading(true)
-    setCurrentStatus(`📤 Processing ${files.length} image(s)...`)
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        
-        // Convert to base64
-        const reader = new FileReader()
-        const imageData = await new Promise((resolve, reject) => {
-          reader.onload = (e) => resolve(e.target.result)
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
-
-        // Validate face
-        setCurrentStatus(`🔍 Validating image ${i + 1}/${files.length}...`)
-        const validateData = await validateFace(imageData)
-        
-        if (validateData.success) {
-          capture.addCapture(imageData, validateData.data)
-          setCurrentStatus(`✅ Added ${i + 1}/${files.length} - Total: ${capture.captures.length + 1}`)
-        } else {
-          setCurrentStatus(`⚠️ Image ${i + 1} skipped: ${validateData.message}`)
-          await new Promise(resolve => setTimeout(resolve, 1500))
-        }
-      }
-
-      setCurrentStatus(`✅ Successfully processed ${files.length} image(s)`)
-    } catch (err) {
-      setError('Upload failed: ' + err.message)
-      setCurrentStatus('❌ Upload failed')
-    } finally {
-      setLoading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    }
-  }, [validateFace, capture, fileInputRef])
-
-  // Trigger file input click
-  const handleUploadClick = useCallback((multiple = false) => {
-    if (fileInputRef.current) {
-      fileInputRef.current.multiple = multiple
-      fileInputRef.current.click()
-    }
-  }, [fileInputRef])
-
   // Handle submission
   const handleSubmit = useCallback(async (isAuto = false) => {
     const currentCaptures = isAuto ? capture.capturesRef.current : capture.captures
@@ -244,105 +186,36 @@ function FaceRegistration() {
       </div>
 
       <div className="registration-content">
-        {/* Input Method Selection */}
-        <div className="input-method-selector">
-          <h3>Choose Input Method:</h3>
-          <div className="method-buttons">
-            <button 
-              className={`method-btn ${inputMethod === 'camera' ? 'active' : ''}`}
-              onClick={() => setInputMethod('camera')}
-            >
-              📷 Camera Capture
-            </button>
-            <button 
-              className={`method-btn ${inputMethod === 'upload-single' ? 'active' : ''}`}
-              onClick={() => setInputMethod('upload-single')}
-            >
-              🖼️ Upload Single Image
-            </button>
-            <button 
-              className={`method-btn ${inputMethod === 'upload-multiple' ? 'active' : ''}`}
-              onClick={() => setInputMethod('upload-multiple')}
-            >
-              📁 Upload Multiple Images
-            </button>
-          </div>
-        </div>
-
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFileUpload}
-        />
-
-        {/* Upload Section */}
-        {(inputMethod === 'upload-single' || inputMethod === 'upload-multiple') && (
-          <div className="upload-section">
-            <div className="upload-area">
-              <div className="upload-icon">📤</div>
-              <h3>
-                {inputMethod === 'upload-single' 
-                  ? 'Upload Single Face Image' 
-                  : 'Upload Multiple Face Images'}
-              </h3>
-              <p>
-                {inputMethod === 'upload-single'
-                  ? 'Select one clear face image'
-                  : 'Select multiple face images at once'}
-              </p>
-              <button 
-                className="btn-upload"
-                onClick={() => handleUploadClick(inputMethod === 'upload-multiple')}
-                disabled={loading}
-              >
-                {inputMethod === 'upload-single' 
-                  ? '📂 Choose Image' 
-                  : '📂 Choose Images'}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Camera Section */}
-        {inputMethod === 'camera' && (
-          <div className="camera-section">
-            <CameraSection
-              cameraActive={camera.cameraActive}
-              faceInPosition={faceInPosition}
-              videoRef={camera.videoRef}
-              onStartCamera={camera.startCamera}
+        <div className="camera-section">
+          <CameraSection
+            cameraActive={camera.cameraActive}
+            faceInPosition={faceInPosition}
+            videoRef={camera.videoRef}
+            onStartCamera={camera.startCamera}
+          />
+
+          {/* Status Message */}
+          {currentStatus && (
+            <div className="status-message">{currentStatus}</div>
+          )}
+
+          {/* Camera Controls */}
+          {camera.cameraActive && !loading && (
+            <CameraControls
+              captureMode={capture.captureMode}
+              isCapturing={capture.isCapturing}
+              capturesCount={capture.captures.length}
+              targetCaptures={capture.TARGET_CAPTURES}
+              autoInterval={capture.autoInterval}
+              onManualMode={handleManualMode}
+              onAutoCapture={handleAutoCapture}
+              onStopAuto={capture.stopAutoCapture}
+              onCapture={handleCapture}
+              onStopCamera={camera.stopCamera}
             />
-
-            {/* Status Message */}
-            {currentStatus && (
-              <div className="status-message">{currentStatus}</div>
-            )}
-
-            {/* Camera Controls */}
-            {camera.cameraActive && !loading && (
-              <CameraControls
-                captureMode={capture.captureMode}
-                isCapturing={capture.isCapturing}
-                capturesCount={capture.captures.length}
-                targetCaptures={capture.TARGET_CAPTURES}
-                autoInterval={capture.autoInterval}
-                onManualMode={handleManualMode}
-                onAutoCapture={handleAutoCapture}
-                onStopAuto={capture.stopAutoCapture}
-                onCapture={handleCapture}
-                onStopCamera={camera.stopCamera}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Status Message for Upload */}
-        {inputMethod !== 'camera' && currentStatus && (
-          <div className="status-message">{currentStatus}</div>
-        )}
+          )}
+        </div>
 
         {/* Captures Grid */}
         <CaptureGrid

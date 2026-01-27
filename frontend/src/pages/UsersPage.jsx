@@ -10,6 +10,7 @@ function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [showFaceMenu, setShowFaceMenu] = useState(null) // Track which user's menu is open
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,6 +23,18 @@ function UsersPage() {
   useEffect(() => {
     fetchUsers()
   }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showFaceMenu && !event.target.closest('.dropdown')) {
+        setShowFaceMenu(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showFaceMenu])
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -117,6 +130,48 @@ function UsersPage() {
     setError(null)
   }
 
+  const handleDeleteFaceData = async (userId) => {
+    if (!confirm('Delete all face data for this user? This cannot be undone.')) return
+
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/face/users/${userId}/embeddings`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert('Face data deleted successfully')
+        fetchUsers()
+      } else {
+        setError(data.message)
+      }
+    } catch (err) {
+      setError('Error deleting face data: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRegisterFace = (userId) => {
+    setShowFaceMenu(null)
+    navigate(`/users/${userId}/register-face`)
+  }
+
+  const handleUpdateFace = (userId) => {
+    setShowFaceMenu(null)
+    navigate(`/users/${userId}/register-face?mode=update`)
+  }
+
+  const handleReRegisterFace = async (userId) => {
+    setShowFaceMenu(null)
+    if (!confirm('This will delete all existing face data and start fresh. Continue?')) return
+    
+    // Delete existing face data first
+    await handleDeleteFaceData(userId)
+    // Then navigate to registration
+    navigate(`/users/${userId}/register-face`)
+  }
+
   // Pagination
   const indexOfLastUser = currentPage * USERS_PER_PAGE
   const indexOfFirstUser = indexOfLastUser - USERS_PER_PAGE
@@ -182,32 +237,55 @@ function UsersPage() {
                   </td>
                   <td>{new Date(user.created_at).toLocaleString()}</td>
                   <td>
-                    <button
-                      className="btn-register"
-                      onClick={() => navigate(`/users/${user.id}/register-face`)}
-                    >
-                      📷 Register Face
-                    </button>
-                    {user.face_registered && (
+                    <div className="actions-cell">
+                      {/* Face Registration Actions */}
+                      <div className="face-actions">
+                        {!user.face_registered ? (
+                          <button
+                            className="btn-register"
+                            onClick={() => handleRegisterFace(user.id)}
+                          >
+                            📷 Register Face
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="btn-update"
+                              onClick={() => handleUpdateFace(user.id)}
+                            >
+                              ➕ Update Face
+                            </button>
+                            <button
+                              className="btn-reregister"
+                              onClick={() => handleReRegisterFace(user.id)}
+                            >
+                              🔄 Re-register
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {user.face_registered && (
+                        <button
+                          className="btn-predict"
+                          onClick={() => navigate(`/users/${user.id}/predict`)}
+                        >
+                          🔍 Predict
+                        </button>
+                      )}
                       <button
-                        className="btn-predict"
-                        onClick={() => navigate(`/users/${user.id}/predict`)}
+                        className="btn-edit"
+                        onClick={() => openModal(user)}
                       >
-                        🔍 Predict
+                        Edit
                       </button>
-                    )}
-                    <button
-                      className="btn-edit"
-                      onClick={() => openModal(user)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      Delete
-                    </button>
+                      <button
+                        className="btn-delete"
+                        onClick={() => handleDelete(user.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
