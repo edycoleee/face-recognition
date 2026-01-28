@@ -178,6 +178,86 @@
   gap: 2rem;
 }
 
+/* Target Captures Selection */
+.target-selection {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.target-selection h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.radio-group {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.radio-option:hover {
+  border-color: #4CAF50;
+  background: #f0f9f0;
+  transform: translateY(-2px);
+}
+
+.radio-option input[type="radio"] {
+  margin-right: 12px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #4CAF50;
+}
+
+.radio-option input[type="radio"]:checked + span {
+  font-weight: 600;
+  color: #4CAF50;
+}
+
+.radio-option input[type="radio"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.radio-option input[type="radio"]:disabled + span {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-option span {
+  font-size: 15px;
+  color: #333;
+  transition: all 0.3s ease;
+}
+
+.selection-note {
+  margin-top: 12px;
+  padding: 10px 15px;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #856404;
+}
+
 /* Camera Section */
 .camera-section {
   display: flex;

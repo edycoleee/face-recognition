@@ -1,13 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
-const TARGET_CAPTURES = 10
 const AUTO_INTERVAL_MS = 2000
 
-export function useCapture() {
+export function useCapture(initialTargetCaptures = 10) {
   const [captures, setCaptures] = useState([])
   const [captureMode, setCaptureMode] = useState('manual')
   const [isCapturing, setIsCapturing] = useState(false)
   const [autoInterval, setAutoInterval] = useState(null)
+  const [targetCaptures, setTargetCaptures] = useState(initialTargetCaptures)
   const capturesRef = useRef([])
 
   // Sync captures to ref
@@ -17,10 +17,10 @@ export function useCapture() {
 
   // Auto-stop when target reached
   useEffect(() => {
-    if (captures.length >= TARGET_CAPTURES && autoInterval) {
+    if (captures.length >= targetCaptures && autoInterval) {
       stopAutoCapture()
     }
-  }, [captures.length, autoInterval])
+  }, [captures.length, targetCaptures, autoInterval])
 
   const addCapture = useCallback((imageData, faceData) => {
     const newCapture = {
@@ -67,11 +67,12 @@ export function useCapture() {
     isCapturing,
     setIsCapturing,
     autoInterval,
+    targetCaptures,
+    setTargetCaptures,
     addCapture,
     deleteCapture,
     resetCaptures,
     startAutoCapture,
-    stopAutoCapture,
-    TARGET_CAPTURES
+    stopAutoCapture
   }
 }

@@ -17,7 +17,7 @@ function FaceRegistration() {
   
   // Custom Hooks
   const camera = useCamera()
-  const capture = useCapture()
+  const capture = useCapture(10) // Default 10 images
   const { faceInPosition, validateFace, checkFacePosition } = useFaceValidation()
   
   // Local State
@@ -107,10 +107,10 @@ function FaceRegistration() {
         
         // Add capture
         capture.addCapture(imageData, faceData)
-        setCurrentStatus(`✅ Captured ${capture.captures.length + 1}/${capture.TARGET_CAPTURES}`)
+        setCurrentStatus(`✅ Captured ${capture.captures.length + 1}/${capture.targetCaptures}`)
         
         // Auto-submit if target reached in auto mode
-        if (capture.captures.length + 1 >= capture.TARGET_CAPTURES && capture.captureMode === 'auto') {
+        if (capture.captures.length + 1 >= capture.targetCaptures && capture.captureMode === 'auto') {
           setTimeout(() => {
             capture.stopAutoCapture()
             setCurrentStatus('✅ All captures completed! Submitting...')
@@ -309,6 +309,40 @@ function FaceRegistration() {
         {/* Camera Section */}
         {inputMethod === 'camera' && (
           <div className="camera-section">
+            {/* Target Captures Selection */}
+            <div className="target-selection">
+              <h3>Number of Images to Capture:</h3>
+              <div className="radio-group">
+                <label className="radio-option">
+                  <input
+                    type="radio"
+                    name="targetCaptures"
+                    value="5"
+                    checked={capture.targetCaptures === 5}
+                    onChange={(e) => capture.setTargetCaptures(Number(e.target.value))}
+                    disabled={capture.captures.length > 0}
+                  />
+                  <span>5 Images (Faster ⚡)</span>
+                </label>
+                <label className="radio-option">
+                  <input
+                    type="radio"
+                    name="targetCaptures"
+                    value="10"
+                    checked={capture.targetCaptures === 10}
+                    onChange={(e) => capture.setTargetCaptures(Number(e.target.value))}
+                    disabled={capture.captures.length > 0}
+                  />
+                  <span>10 Images (More Accurate 🎯)</span>
+                </label>
+              </div>
+              {capture.captures.length > 0 && (
+                <p className="selection-note">
+                  ℹ️ Reset captures to change target
+                </p>
+              )}
+            </div>
+
             <CameraSection
               cameraActive={camera.cameraActive}
               faceInPosition={faceInPosition}
@@ -327,7 +361,7 @@ function FaceRegistration() {
                 captureMode={capture.captureMode}
                 isCapturing={capture.isCapturing}
                 capturesCount={capture.captures.length}
-                targetCaptures={capture.TARGET_CAPTURES}
+                targetCaptures={capture.targetCaptures}
                 autoInterval={capture.autoInterval}
                 onManualMode={handleManualMode}
                 onAutoCapture={handleAutoCapture}
@@ -347,7 +381,7 @@ function FaceRegistration() {
         {/* Captures Grid */}
         <CaptureGrid
           captures={capture.captures}
-          targetCaptures={capture.TARGET_CAPTURES}
+          targetCaptures={capture.targetCaptures}
           loading={loading}
           onDeleteCapture={capture.deleteCapture}
           onResetCaptures={capture.resetCaptures}
