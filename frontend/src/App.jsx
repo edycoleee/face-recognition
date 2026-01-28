@@ -3,9 +3,11 @@ import './App.css'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import FaceLoginPopup from './pages/FaceLoginPopup'
+import FaceRecognitionPopup from './pages/FaceRecognitionPopup'
 import Dashboard from './pages/Dashboard'
 import HaloPage from './pages/HaloPage'
 import FaceDetectionPage from './pages/FaceDetectionPage'
+import FaceRecognitionPage from './pages/FaceRecognitionPage'
 import UsersPage from './pages/UsersPage'
 import FaceRegistration from './pages/FaceRegistration'
 import FacePrediction from './pages/FacePrediction'
@@ -18,6 +20,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/login-popup" element={<FaceLoginPopup />} />
+        <Route path="/recognition-popup" element={<FaceRecognitionPopup />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
@@ -25,6 +28,7 @@ function App() {
         } />
         <Route path="/halo" element={<HaloPage />} />
         <Route path="/face-detection" element={<FaceDetectionPage />} />
+        <Route path="/face-recognition" element={<FaceRecognitionPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/users/:userId/register-face" element={<FaceRegistration />} />
         <Route path="/users/:userId/predict" element={<FacePrediction />} />

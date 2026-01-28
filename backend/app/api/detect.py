@@ -6,7 +6,8 @@ from services.detection_service import (
     detect_faces_from_image,
     detect_faces_from_base64,
     draw_faces_on_image,
-    process_video_frame
+    process_video_frame,
+    recognize_faces_from_base64
 )
 import io
 
@@ -156,6 +157,30 @@ class DetectFromWebcam(Resource):
         
         # Detect faces
         result = detect_faces_from_base64(base64_string)
+        
+        if 'error' in result:
+            return result, 400
+        
+        return result, 200
+
+@api.route("/recognize")
+class RecognizeFaces(Resource):
+    @api.doc("recognize_faces_from_image")
+    @api.expect(base64_input)
+    @api.response(200, "Success - Faces detected and identified")
+    @api.response(400, "Bad Request")
+    def post(self):
+        """Detect all faces and identify them against database (1:N for each face)"""
+        data = request.get_json()
+        
+        if not data or 'image' not in data:
+            return {'error': 'No image data provided'}, 400
+        
+        base64_string = data['image']
+        threshold = data.get('threshold', 0.6)
+        
+        # Recognize faces (detect + identify each)
+        result = recognize_faces_from_base64(base64_string, threshold)
         
         if 'error' in result:
             return result, 400

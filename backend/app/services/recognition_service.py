@@ -11,7 +11,8 @@ from utils.embedding_utils import (
     average_embeddings,
     embedding_to_db_format,
     db_format_to_embedding,
-    filter_high_quality_embeddings
+    filter_high_quality_embeddings,
+    calculate_cosine_similarity
 )
 from utils.constants import FaceRecognition, FileSystem
 from config import FaceRecognitionConfig
@@ -500,4 +501,118 @@ def verify_face(user_id: int, face_image, threshold: float = None) -> Tuple[bool
     except Exception as e:
         logger.error(f"Error in verify_face: {str(e)}")
         return False, 0.0
+
+
+def find_best_match(
+    query_embedding: np.ndarray,
+    threshold: float = 0.6
+) -> Tuple[bool, str, Dict[str, Any]]:
+    """
+    Find best matching user for given face embedding (1:N search)
+    
+    Args:
+        query_embedding: Normalized face embedding (numpy array)
+        threshold: Similarity threshold for matching (0.0 to 1.0)
+        
+    Returns:
+        Tuple of (success, message, result_data)
+        result_data contains:
+        - identified: bool - Whether a match was found above threshold
+        - name: str - User's name (if identified)
+        - email: str - User's email (if identified)
+        - user_id: int - User's ID (if identified)
+        - confidence: float - Match confidence percentage
+    """
+    try:
+        # Normalize embedding
+        query_embedding = normalize_embedding(query_embedding)
+        
+        logger.info(f"find_best_match called with threshold={threshold}")
+        
+        # Get all face embeddings from database
+        with get_db_connection() as conn:
+            cursor = get_db_cursor(conn)
+            cursor.execute("""
+                SELECT 
+                    fe.id,
+                    fe.user_id,
+                    fe.embedding,
+                    u.name,
+                    u.email
+                FROM face_embeddings fe
+                JOIN users u ON fe.user_id = u.id
+            """)
+            
+            db_faces = cursor.fetchall()
+        
+        logger.info(f"Found {len(db_faces)} embeddings in database")
+        
+        if not db_faces:
+            logger.warning("No registered faces in database")
+            return False, "No registered faces in database", {
+                'identified': False,
+                'name': None,
+                'email': None,
+                'user_id': None,
+                'confidence': 0.0
+            }
+        
+        # Calculate similarities with all embeddings
+        user_scores = {}  # Track best score per user
+        
+        for face in db_faces:
+            # Parse embedding from database (pgvector string format)
+            db_embedding = db_format_to_embedding(face['embedding'])
+            db_embedding = normalize_embedding(db_embedding)
+            
+            # Calculate cosine similarity
+            similarity = calculate_cosine_similarity(query_embedding, db_embedding)
+            
+            user_id = face['user_id']
+            
+            logger.debug(f"User {user_id} ({face['name']}): similarity={similarity:.4f}")
+            
+            # Track best score for each user
+            if user_id not in user_scores or similarity > user_scores[user_id]['similarity']:
+                user_scores[user_id] = {
+                    'user_id': user_id,
+                    'name': face['name'],
+                    'email': face['email'],
+                    'similarity': similarity
+                }
+        
+        # Get best match across all users
+        best_match = max(user_scores.values(), key=lambda x: x['similarity'])
+        
+        logger.info(f"Best match: {best_match['name']} with similarity={best_match['similarity']:.4f}, threshold={threshold}")
+        
+        # Check if best match exceeds threshold
+        if best_match['similarity'] >= threshold:
+            logger.info(f"MATCH FOUND: {best_match['name']} ({best_match['email']}) - confidence={best_match['similarity']:.4f}")
+            return True, "Face identified", {
+                'identified': True,
+                'name': best_match['name'],
+                'email': best_match['email'],
+                'user_id': best_match['user_id'],
+                'confidence': float(best_match['similarity'])
+            }
+        else:
+            logger.warning(f"NO MATCH: Best similarity {best_match['similarity']:.4f} < threshold {threshold}")
+            return True, "No match found", {
+                'identified': False,
+                'name': None,
+                'email': None,
+                'user_id': None,
+                'confidence': float(best_match['similarity'])
+            }
+        
+    except Exception as e:
+        logger.error(f"Error in find_best_match: {str(e)}", exc_info=True)
+        return False, f"Error: {str(e)}", {
+            'identified': False,
+            'name': None,
+            'email': None,
+            'user_id': None,
+            'confidence': 0.0
+        }
 

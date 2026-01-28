@@ -21,5 +21,15 @@ export const faceApi = {
     })
     const data = await response.json()
     return data
+  },
+
+  async identifyFace(imageBase64) {
+    const response = await fetch(`${API_BASE_URL}/detect/recognize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageBase64 })
+    })
+    const data = await response.json()
+    return data
   }
 }

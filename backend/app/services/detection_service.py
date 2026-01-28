@@ -209,3 +209,109 @@ def process_video_frame(frame_base64: str) -> Dict[str, Any]:
     # For video frames, use the same detection logic
     # Could be optimized with frame skipping or lower resolution
     return detect_faces_from_base64(frame_base64)
+
+
+def recognize_faces_from_base64(image_base64: str, threshold: float = 0.6) -> Dict[str, Any]:
+    """
+    Detect all faces in image and identify each one against database (1:N matching)
+    
+    Args:
+        image_base64: Base64 encoded image
+        threshold: Similarity threshold for face matching (default 0.6)
+        
+    Returns:
+        Dictionary containing:
+        - success: bool
+        - faces: List of detected faces with identification info
+        - count: Total number of faces detected
+    """
+    try:
+        from services.recognition_service import find_best_match
+        
+        # First, detect all faces
+        detection_result = detect_faces_from_base64(image_base64)
+        
+        if 'error' in detection_result:
+            return detection_result
+        
+        detected_faces = detection_result.get('faces', [])
+        
+        if not detected_faces:
+            return {
+                'success': True,
+                'message': 'No faces detected',
+                'faces': [],
+                'count': 0
+            }
+        
+        # Get face detector for embedding extraction
+        detector = get_face_detector()
+        img = decode_base64_image(image_base64)
+        
+        if img is None:
+            return {'error': 'Failed to decode image'}
+        
+        # Get all faces with embeddings
+        faces = detector.get(img)
+        
+        # Process each detected face
+        recognized_faces = []
+        
+        for i, (face, face_info) in enumerate(zip(faces, detected_faces)):
+            # Get embedding for this face
+            embedding = face.normed_embedding
+            
+            logger.info(f"Processing face {i+1}: embedding shape = {embedding.shape if embedding is not None else 'None'}")
+            
+            if embedding is None:
+                # No embedding, mark as unknown
+                logger.warning(f"Face {i+1}: No embedding extracted")
+                recognized_faces.append({
+                    **face_info,
+                    'identified': False,
+                    'name': None,
+                    'email': None,
+                    'user_id': None,
+                    'confidence': 0.0
+                })
+                continue
+            
+            # Try to identify this face (1:N search)
+            logger.info(f"Face {i+1}: Calling find_best_match with threshold={threshold}")
+            success, message, match_result = find_best_match(embedding, threshold)
+            
+            logger.info(f"Face {i+1}: find_best_match result - success={success}, message={message}, identified={match_result.get('identified')}, confidence={match_result.get('confidence')}")
+            
+            if success and match_result.get('identified'):
+                # Face identified
+                logger.info(f"Face {i+1}: IDENTIFIED as {match_result.get('name')} with confidence {match_result.get('confidence')}")
+                recognized_faces.append({
+                    **face_info,
+                    'identified': True,
+                    'name': match_result.get('name'),
+                    'email': match_result.get('email'),
+                    'user_id': match_result.get('user_id'),
+                    'confidence': match_result.get('confidence', 0.0)
+                })
+            else:
+                # Face not identified (below threshold or not in database)
+                logger.warning(f"Face {i+1}: NOT IDENTIFIED - {message}")
+                recognized_faces.append({
+                    **face_info,
+                    'identified': False,
+                    'name': None,
+                    'email': None,
+                    'user_id': None,
+                    'confidence': match_result.get('confidence', 0.0)
+                })
+        
+        return {
+            'success': True,
+            'message': f'Detected {len(recognized_faces)} face(s)',
+            'faces': recognized_faces,
+            'count': len(recognized_faces)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in recognize_faces_from_base64: {str(e)}")
+        return {'error': f'Face recognition failed: {str(e)}'}

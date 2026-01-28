@@ -6,7 +6,7 @@ function Landing() {
 
   const cards = [
     {
-      title: '🔐 Login',
+      title: 'Face Login',
       description: 'Face Recognition or Password Authentication',
       icon: '🚀',
       path: '/login',
@@ -27,8 +27,15 @@ function Landing() {
       color: '#2196F3'
     },
     {
-      title: 'User Management',
-      description: 'Manage users with CRUD operations',
+      title: 'Face Recognition',
+      description: 'Detect & identify faces (1:N matching)',
+      icon: '🔍',
+      path: '/face-recognition',
+      color: '#E91E63'
+    },
+    {
+      title: 'Face Registration',
+      description: 'Manage users with CRUD operations and Image',
       icon: '👥',
       path: '/users',
       color: '#FF9800'

@@ -107,3 +107,54 @@ export const openFaceLoginPopup = (options = {}) => {
     }, 500);
   });
 };
+
+/**
+ * Open popup window for face recognition (detect + identify multiple faces)
+ */
+export const openFaceRecognitionPopup = () => {
+  return new Promise((resolve, reject) => {
+    // Popup window dimensions & position (wider for recognition)
+    const width = 800;
+    const height = 700;
+    const left = Math.floor((window.screen.width - width) / 2);
+    const top = Math.floor((window.screen.height - height) / 2);
+
+    // Window features
+    const features = [
+      `width=${width}`,
+      `height=${height}`,
+      `left=${left}`,
+      `top=${top}`,
+      'toolbar=no',
+      'location=no',
+      'directories=no',
+      'status=no',
+      'menubar=no',
+      'scrollbars=yes',
+      'resizable=yes',
+      'copyhistory=no'
+    ].join(',');
+
+    const popupUrl = '/recognition-popup';
+
+    // Open popup window
+    const popup = window.open(popupUrl, 'Face Recognition', features);
+
+    if (!popup) {
+      reject(new Error('Popup blocked. Please allow popups for this site.'));
+      return;
+    }
+
+    // Focus popup window
+    popup.focus();
+
+    // Note: This popup stays open for continuous recognition
+    // User can close it manually when done
+    
+    resolve({
+      success: true,
+      popup: popup,
+      message: 'Recognition window opened'
+    });
+  });
+};
