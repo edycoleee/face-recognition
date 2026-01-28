@@ -1,0 +1,377 @@
+/* Face Login Popup - OAuth2 Style Window */
+
+.face-login-popup {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  overflow: hidden;
+}
+
+/* Header */
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.popup-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.email-display {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.btn-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Content */
+.popup-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Camera Section */
+.camera-section {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 1.5rem;
+}
+
+.camera-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.camera-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.camera-placeholder p:first-child {
+  font-size: 4rem;
+  margin: 0;
+}
+
+.camera-placeholder p:last-child {
+  font-size: 1rem;
+  margin: 0.5rem 0 0 0;
+  opacity: 0.8;
+}
+
+.video-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Oval Guide Overlay */
+.oval-guide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 280px;
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  box-shadow: 
+    0 0 0 9999px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(255, 255, 255, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 
+      0 0 0 9999px rgba(0, 0, 0, 0.5),
+      0 0 20px rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 1);
+    box-shadow: 
+      0 0 0 9999px rgba(0, 0, 0, 0.5),
+      0 0 30px rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* Status Section */
+.status-section {
+  width: 100%;
+  max-width: 480px;
+  min-height: 80px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.status-message {
+  padding: 1rem;
+  font-size: 1rem;
+}
+
+.status-message p {
+  margin: 0;
+}
+
+.status-verifying {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-success {
+  padding: 1rem;
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 3px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: bold;
+  animation: checkmark 0.6s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.redirect-msg {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.status-failed {
+  padding: 1rem;
+  background: rgba(220, 38, 38, 0.2);
+  border-radius: 10px;
+  border: 2px solid rgba(220, 38, 38, 0.5);
+}
+
+.status-failed p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Action Buttons */
+.popup-actions {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 1rem;
+}
+
+.btn-capture,
+.btn-retry {
+  flex: 1;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-capture:hover:not(:disabled),
+.btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-capture:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: white;
+}
+
+.success-actions {
+  flex: 1;
+  text-align: center;
+  padding: 1rem;
+  opacity: 0.8;
+}
+
+.success-actions p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Threshold Info */
+.threshold-info {
+  text-align: center;
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .popup-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .popup-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .email-display {
+    position: static;
+    transform: none;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .popup-content {
+    padding: 1rem;
+  }
+
+  .camera-section {
+    margin-bottom: 1rem;
+  }
+
+  .oval-guide {
+    width: 180px;
+    height: 240px;
+  }
+
+  .popup-actions {
+    flex-direction: column;
+  }
+
+  .btn-capture,
+  .btn-retry,
+  .btn-cancel {
+    width: 100%;
+  }
+}
+
+/* Loading Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.face-login-popup {
+  animation: fadeIn 0.3s ease-out;
+}

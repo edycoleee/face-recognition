@@ -9,19 +9,21 @@ const API_BASE_URL = 'http://192.168.30.21:5000/api';
  * Login with face verification (1:1)
  * 
  * @param {string} email - User email
- * @param {File} imageFile - Face image file
+ * @param {string} base64Image - Base64 encoded image string
  * @param {number} threshold - Confidence threshold (optional)
  * @returns {Promise} Response with token and user info
  */
-export const loginWithFace = async (email, imageFile, threshold = 0.6) => {
-  const formData = new FormData();
-  formData.append('email', email);
-  formData.append('file', imageFile);
-  formData.append('threshold', threshold.toString());
-
+export const loginWithFace = async (email, base64Image, threshold = 0.6) => {
   const response = await fetch(`${API_BASE_URL}/auth/login-face`, {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      image: base64Image,
+      threshold
+    }),
   });
 
   const data = await response.json();

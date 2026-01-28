@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginWithFace, loginWithPassword, saveAuthData } from '../services/authApi';
+import { openFaceLoginPopup } from '../utils/popupAuth';
 import './Login.css';
 
 function Login() {
@@ -88,21 +89,25 @@ function Login() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
     
-    // Convert canvas to blob
-    canvas.toBlob((blob) => {
+    // Convert canvas to base64 and verify immediately
+    const base64Image = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // Create blob for preview
+    canvas.toBlob(async (blob) => {
       setCapturedImage(blob);
       setError('');
+      
+      // Stop camera after capture
+      stopCamera();
+      
+      // Auto verify with base64 image
+      await verifyFaceLogin(base64Image);
     }, 'image/jpeg', 0.95);
   };
 
-  const handleFaceLogin = async () => {
+  const verifyFaceLogin = async (base64Image) => {
     if (!email) {
-      setError('Please enter your email');
-      return;
-    }
-
-    if (!capturedImage) {
-      setError('Please capture your face image');
+      setError('Please enter your email first');
       return;
     }
 
@@ -111,16 +116,42 @@ function Login() {
     setSuccess('');
 
     try {
-      // Create file from blob
-      const file = new File([capturedImage], 'face.jpg', { type: 'image/jpeg' });
+      console.log('Starting face verification for email:', email);
+      console.log('Threshold:', threshold);
+      console.log('Base64 image length:', base64Image.length);
       
-      // Call API
-      const response = await loginWithFace(email, file, threshold);
+      // Call API with base64 image
+      const response = await loginWithFace(email, base64Image, threshold);
+      
+      console.log('Login response:', response);
+      
+      // Check if response is valid
+      if (!response) {
+        throw new Error('No response from server');
+      }
+
+      if (!response.success) {
+        // If we got data with confidence info, show it
+        if (response.data && typeof response.data.confidence !== 'undefined') {
+          throw new Error(`${response.message || 'Verification failed'} (Confidence: ${response.data.confidence.toFixed(2)})`);
+        }
+        throw new Error(response.message || 'Verification failed');
+      }
+
+      // Check if data exists
+      if (!response.data) {
+        throw new Error('Invalid response data from server');
+      }
       
       // Save auth data
       saveAuthData(response);
       
-      setSuccess(`Login successful! Confidence: ${response.data.confidence.toFixed(2)}`);
+      // Show success with confidence if available
+      const confidenceText = response.data.confidence 
+        ? ` Confidence: ${response.data.confidence.toFixed(2)}`
+        : '';
+      
+      setSuccess(`✅ Login successful!${confidenceText}`);
       
       // Redirect to dashboard after short delay
       setTimeout(() => {
@@ -128,7 +159,18 @@ function Login() {
       }, 1500);
       
     } catch (err) {
-      setError(err.message || 'Face login failed');
+      console.error('Face verification error:', err);
+      
+      // Extract error message properly
+      let errorMessage = 'Face verification failed. Please try again.';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -181,6 +223,45 @@ function Login() {
   const resetCapture = () => {
     setCapturedImage(null);
     setError('');
+    setSuccess('');
+    // Restart camera for recapture
+    startCamera();
+  };
+
+  const handlePopupLogin = async () => {
+    if (!email) {
+      setError('Please enter your email first');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Open popup window (OAuth2-style)
+      const result = await openFaceLoginPopup({
+        email,
+        threshold
+      });
+
+      if (result.success) {
+        // Save auth data
+        saveAuthData(result);
+        
+        setSuccess('✅ Login successful via popup!');
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('Popup login error:', err);
+      setError(err.message || 'Popup login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -201,6 +282,14 @@ function Login() {
             onClick={() => switchMode('password')}
           >
             🔑 Password Login
+          </button>
+          <button
+            className="mode-btn mode-btn-popup"
+            onClick={handlePopupLogin}
+            disabled={loading || !email}
+            title="Open popup window for face login (OAuth2-style)"
+          >
+            🪟 Popup Face Login
           </button>
         </div>
 
@@ -245,20 +334,15 @@ function Login() {
                 <div className="login-instructions">
                   <p>📋 Instructions:</p>
                   <ol>
+                    <li>Enter your email address</li>
                     <li>Click "Start Camera" on the right</li>
                     <li>Position your face in the frame</li>
-                    <li>Click "Capture Face"</li>
-                    <li>Click "Login with Face" below</li>
+                    <li>Click "Capture Face" to verify</li>
                   </ol>
+                  <p style={{ marginTop: '0.75rem', fontSize: '13px', color: '#666' }}>
+                    ℹ️ Verification happens automatically after capture
+                  </p>
                 </div>
-
-                <button
-                  onClick={handleFaceLogin}
-                  className="btn btn-login"
-                  disabled={loading || !email || !capturedImage}
-                >
-                  {loading ? '⏳ Verifying...' : '🚀 Login with Face'}
-                </button>
               </div>
             )}
 
@@ -335,8 +419,8 @@ function Login() {
                     <>
                       <p className="video-instruction">Position your face in the frame</p>
                       <div className="camera-controls">
-                        <button onClick={captureImage} className="btn-predict" disabled={loading}>
-                          📸 Capture Face
+                        <button onClick={captureImage} className="btn-predict" disabled={loading || !email}>
+                          📸 Capture & Verify Face
                         </button>
                         <button onClick={stopCamera} className="btn-stop-camera" disabled={loading}>
                           Stop Camera
@@ -353,10 +437,29 @@ function Login() {
                       alt="Captured face"
                     />
                   </div>
-                  <p className="captured-label">✅ Face Captured - Ready to login</p>
-                  <button onClick={resetCapture} className="btn-reset" disabled={loading}>
-                    🔄 Recapture
-                  </button>
+                  
+                  {loading && (
+                    <div className="verification-status verifying">
+                      <div className="spinner"></div>
+                      <p>⏳ Verifying your face...</p>
+                    </div>
+                  )}
+                  
+                  {!loading && error && (
+                    <div className="verification-status failed">
+                      <p>❌ Verification Failed</p>
+                      <button onClick={resetCapture} className="btn-reset">
+                        🔄 Try Again
+                      </button>
+                    </div>
+                  )}
+                  
+                  {!loading && success && (
+                    <div className="verification-status success">
+                      <p>✅ Verification Successful!</p>
+                      <p className="redirect-msg">Redirecting to dashboard...</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

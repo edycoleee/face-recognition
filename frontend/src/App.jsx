@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import './App.css'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
+import FaceLoginPopup from './pages/FaceLoginPopup'
 import Dashboard from './pages/Dashboard'
 import HaloPage from './pages/HaloPage'
 import FaceDetectionPage from './pages/FaceDetectionPage'
@@ -16,6 +17,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/login-popup" element={<FaceLoginPopup />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />

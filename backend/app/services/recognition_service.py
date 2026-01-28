@@ -10,6 +10,7 @@ from utils.embedding_utils import (
     normalize_embedding,
     average_embeddings,
     embedding_to_db_format,
+    db_format_to_embedding,
     filter_high_quality_embeddings
 )
 from utils.constants import FaceRecognition, FileSystem
@@ -476,9 +477,11 @@ def verify_face(user_id: int, face_image, threshold: float = None) -> Tuple[bool
             return False, 0.0
         
         # Compare against all stored embeddings and get best match
+        # Note: pgvector returns embeddings as string format '[x,y,z,...]'
+        # which needs to be parsed before using in calculations
         max_similarity = 0.0
         for row in results:
-            stored_embedding = np.array(row['embedding'], dtype=np.float32)
+            stored_embedding = db_format_to_embedding(row['embedding'])
             stored_embedding = normalize_embedding(stored_embedding)
             
             similarity = calculate_cosine_similarity(query_embedding, stored_embedding)

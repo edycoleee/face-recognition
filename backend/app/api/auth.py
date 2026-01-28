@@ -4,7 +4,6 @@ Face Recognition + Password Authentication
 """
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from werkzeug.datastructures import FileStorage
 
 from services.auth_service import AuthService
 from utils.decorators import handle_exceptions, log_request
@@ -28,6 +27,13 @@ password_login_model = api.model("PasswordLogin", {
     "password": fields.String(required=True, description='Password user', example='password123')
 })
 
+# Face login model
+face_login_model = api.model("FaceLogin", {
+    "email": fields.String(required=True, description='Email user', example='user@example.com'),
+    "image": fields.String(required=True, description='Base64 encoded image'),
+    "threshold": fields.Float(required=False, description='Confidence threshold (0.0-1.0)', example=0.6)
+})
+
 # Token verification model
 verify_model = api.model("VerifyToken", {
     "token": fields.String(required=True, description='UUID token', example='550e8400-e29b-41d4-a716-446655440000')
@@ -37,12 +43,6 @@ verify_model = api.model("VerifyToken", {
 logout_model = api.model("Logout", {
     "token": fields.String(required=True, description='UUID token', example='550e8400-e29b-41d4-a716-446655440000')
 })
-
-# File upload parser for face login
-face_login_parser = api.parser()
-face_login_parser.add_argument('email', type=str, required=True, location='form', help='Email user')
-face_login_parser.add_argument('file', type=FileStorage, required=True, location='files', help='Face image file')
-face_login_parser.add_argument('threshold', type=float, required=False, location='form', help='Confidence threshold (0.0-1.0)')
 
 
 # ================================================
@@ -54,7 +54,7 @@ class FaceLogin(Resource):
     """Face-based authentication endpoint"""
     
     @api.doc("face_login")
-    @api.expect(face_login_parser)
+    @api.expect(face_login_model)
     @handle_exceptions
     @log_request
     def post(self):
@@ -76,65 +76,100 @@ class FaceLogin(Resource):
         4. Jika match dan confidence > threshold → generate token
         
         Input:
-            - email (form): Email user yang ingin login
-            - file (file): Face image
-            - threshold (form, optional): Confidence threshold (default: 0.6)
+            - email: Email user yang ingin login
+            - image: Base64 encoded image
+            - threshold (optional): Confidence threshold (default: 0.6)
         
         Returns:
             - match: True/False (apakah wajah cocok)
             - user_id, name, email, token (jika success)
             - confidence: Confidence score
         """
-        # Get email from form
-        email = request.form.get('email')
+        data = request.json
+        
+        # Validate request
+        if not data:
+            return {
+                "success": False,
+                "message": "No data provided"
+            }, HTTPStatus.BAD_REQUEST
+        
+        # Get email
+        email = data.get('email')
         if not email:
-            return error_response("Email is required", HTTPStatus.BAD_REQUEST)
+            return {
+                "success": False,
+                "message": "Email is required"
+            }, HTTPStatus.BAD_REQUEST
         
         # Validate email format
         if not validate_email(email):
-            return error_response("Invalid email format", HTTPStatus.BAD_REQUEST)
+            return {
+                "success": False,
+                "message": "Invalid email format"
+            }, HTTPStatus.BAD_REQUEST
+        
+        # Get image
+        base64_image = data.get('image')
+        if not base64_image:
+            return {
+                "success": False,
+                "message": "Image is required"
+            }, HTTPStatus.BAD_REQUEST
+        
+        # Validate base64 image
+        is_valid, error_msg = validate_base64_image(base64_image)
+        if not is_valid:
+            return {
+                "success": False,
+                "message": error_msg
+            }, HTTPStatus.BAD_REQUEST
         
         # Get threshold (optional)
-        threshold = request.form.get('threshold')
-        if threshold:
+        threshold = data.get('threshold')
+        if threshold is not None:
             try:
                 threshold = float(threshold)
                 if not (0.0 <= threshold <= 1.0):
-                    return error_response("Threshold must be between 0.0 and 1.0", HTTPStatus.BAD_REQUEST)
+                    return {
+                        "success": False,
+                        "message": "Threshold must be between 0.0 and 1.0"
+                    }, HTTPStatus.BAD_REQUEST
             except ValueError:
-                return error_response("Invalid threshold value", HTTPStatus.BAD_REQUEST)
-        
-        # Get image file
-        if 'file' not in request.files:
-            return error_response("No file uploaded", HTTPStatus.BAD_REQUEST)
-        
-        file = request.files['file']
-        if file.filename == '':
-            return error_response("No file selected", HTTPStatus.BAD_REQUEST)
+                return {
+                    "success": False,
+                    "message": "Invalid threshold value"
+                }, HTTPStatus.BAD_REQUEST
         
         try:
-            # Read image bytes
-            image_bytes = file.read()
-            
-            # Decode to numpy array
-            from utils.image_utils import decode_bytes_to_image
-            face_image = decode_bytes_to_image(image_bytes)
+            # Decode base64 to numpy array
+            face_image = decode_base64_image(base64_image)
+            if face_image is None:
+                return {
+                    "success": False,
+                    "message": "Failed to decode image"
+                }, HTTPStatus.BAD_REQUEST
             
             # Perform face login
             match, auth_result, confidence = AuthService.face_login(email, face_image, threshold)
             
             if not match:
-                return error_response(
-                    f"Face verification failed. Confidence: {confidence:.2f}",
-                    HTTPStatus.BAD_REQUEST,
-                    {"match": False, "confidence": confidence}
-                )
+                logger.warning(f"Face login failed for {email}, confidence={confidence:.2f}")
+                return {
+                    "success": False,
+                    "message": f"Face verification failed. Confidence: {confidence:.2f}",
+                    "data": {
+                        "match": False,
+                        "confidence": confidence
+                    }
+                }, HTTPStatus.BAD_REQUEST
             
             logger.info(f"Face login successful for {email}, confidence={confidence:.2f}")
             
-            return success_response(
-                "Face login successful",
-                {
+            return {
+                "success": True,
+                "message": "Face login successful",
+                "data": {
                     "match": True,
                     "user_id": auth_result["user_id"],
                     "name": auth_result["name"],
@@ -143,11 +178,14 @@ class FaceLogin(Resource):
                     "expires_at": auth_result["expires_at"].isoformat(),
                     "confidence": confidence
                 }
-            )
+            }, HTTPStatus.OK
             
         except Exception as e:
             logger.error(f"Face login error: {str(e)}")
-            return error_response(f"Face login failed: {str(e)}", HTTPStatus.INTERNAL_SERVER_ERROR)
+            return {
+                "success": False,
+                "message": f"Face login failed: {str(e)}"
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @api.route("/login-pass")

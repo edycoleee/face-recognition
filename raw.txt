@@ -131,3 +131,25 @@ Frontend implementasi auth api dari flask backend
 3. login with face ( input email >> start camera >> verify 1:1 >> token) >> Dashboard Page (restricted page)
 4. login with password ( input email + pass >> verify >> token) >> Dashboard Page (restricted page)
 5. dashboard page (logout), pada halaman ini nantinya berisi content
+
+
+
+pada halaman login page dengan face : 
+subject02@gmail.com
+❌ Face verification failed. Confidence: 0.00
+, sedangkan pada http://localhost:5173/users/2/predict, face prediction
+✅ Match Found!
+Identified As:
+subject02
+Email:
+subject02@gmail.com
+Confidence:
+81.17%
+Similarity Score:
+0.8117
+Top Matches:
+Rank	Name	Confidence	Score
+1	subject02	81.17%	0.8117
+2	subject01	-10.24%	-0.1024
+
+dengan gambar yang sama
