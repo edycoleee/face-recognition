@@ -40,3 +40,22 @@ CREATE INDEX IF NOT EXISTS idx_face_embeddings_user_id ON face_embeddings(user_i
 CREATE INDEX IF NOT EXISTS idx_face_embeddings_vector 
 ON face_embeddings USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
+
+-- ================================================
+-- TABLE: auth_tokens
+-- ================================================
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    confidence REAL NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index untuk token lookup (primary authentication)
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_active ON auth_tokens(is_active) WHERE is_active = TRUE;

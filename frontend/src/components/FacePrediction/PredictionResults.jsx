@@ -2,12 +2,18 @@ function PredictionResults({
   predictionResult, 
   capturedImage, 
   error,
-  onReset 
+  onReset,
+  inputMode = 'camera'
 }) {
   if (!predictionResult && !error && !capturedImage) {
     return (
       <div className="empty-state">
-        <p>📷 Start camera and capture to see prediction results</p>
+        <p>
+          {inputMode === 'camera' 
+            ? '📷 Start camera and capture to see prediction results'
+            : '📁 Upload an image file to see prediction results'
+          }
+        </p>
       </div>
     )
   }

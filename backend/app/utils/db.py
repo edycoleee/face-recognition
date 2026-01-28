@@ -1,50 +1,127 @@
-# app/utils/db.py
+"""
+Database utilities with connection pooling
+"""
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 import os
 from contextlib import contextmanager
+from typing import Optional, Generator
+from utils.logger import logger
+from config import Config
 
-# PostgreSQL connection configuration
-DB_CONFIG = {
-    'dbname': os.getenv('POSTGRES_DB', 'face_db'),
-    'user': os.getenv('POSTGRES_USER', 'sultan'),
-    'password': os.getenv('POSTGRES_PASSWORD', 'Sulfat123#!'),
-    'host': os.getenv('POSTGRES_HOST', '192.168.171.184'),
-    'port': os.getenv('POSTGRES_PORT', '5432')
-}
+# Global connection pool
+_connection_pool: Optional[psycopg2.pool.SimpleConnectionPool] = None
+
+
+def get_database_config() -> dict:
+    """
+    Get database configuration from Config class
+    
+    Returns:
+        Dictionary with database connection parameters
+    """
+    return {
+        'dbname': Config.DB_NAME,
+        'user': Config.DB_USER,
+        'password': Config.DB_PASSWORD,
+        'host': Config.DB_HOST,
+        'port': Config.DB_PORT
+    }
+
+
+def init_connection_pool(minconn: int = 1, maxconn: int = 10) -> None:
+    """
+    Initialize database connection pool
+    
+    Args:
+        minconn: Minimum number of connections in pool
+        maxconn: Maximum number of connections in pool
+    """
+    global _connection_pool
+    
+    if _connection_pool is not None:
+        logger.warning("Connection pool already initialized")
+        return
+    
+    try:
+        db_config = get_database_config()
+        _connection_pool = psycopg2.pool.SimpleConnectionPool(
+            minconn,
+            maxconn,
+            **db_config
+        )
+        logger.info(f"Database connection pool initialized (min={minconn}, max={maxconn})")
+    except Exception as e:
+        logger.error(f"Failed to initialize connection pool: {str(e)}")
+        raise
+
+
+def close_connection_pool() -> None:
+    """Close all connections in the pool"""
+    global _connection_pool
+    
+    if _connection_pool is not None:
+        _connection_pool.closeall()
+        _connection_pool = None
+        logger.info("Database connection pool closed")
+
 
 @contextmanager
-def get_db_connection():
+def get_db_connection() -> Generator:
     """
-    Context manager untuk PostgreSQL connection.
-    Menggunakan psycopg2 dengan RealDictCursor untuk hasil query seperti dict.
+    Context manager for PostgreSQL connection with pooling
     
     Usage:
         with get_db_connection() as conn:
-            cursor = conn.cursor()
+            cursor = get_db_cursor(conn)
             cursor.execute("SELECT * FROM users")
             results = cursor.fetchall()
+    
+    Yields:
+        Database connection from pool
     """
-    conn = psycopg2.connect(**DB_CONFIG)
+    global _connection_pool
+    
+    # Initialize pool if not exists
+    if _connection_pool is None:
+        init_connection_pool()
+    
+    conn = None
     try:
+        # Get connection from pool
+        conn = _connection_pool.getconn()
         yield conn
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        if conn:
+            conn.rollback()
+        raise
     finally:
-        conn.close()
+        # Return connection to pool
+        if conn:
+            _connection_pool.putconn(conn)
+
 
 def get_db_cursor(conn):
     """
-    Get cursor dengan RealDictCursor untuk hasil query sebagai dict.
-    Mirip dengan sqlite3.Row behavior.
+    Get cursor with RealDictCursor for query results as dict
+    
+    Args:
+        conn: Database connection
+        
+    Returns:
+        Cursor with RealDictCursor factory
     """
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-def init_db():
+
+def init_db() -> None:
     """
-    Initialize database tables.
-    Catatan: Jika menggunakan docker-compose dengan init.sql,
-    function ini tidak diperlukan karena tables sudah auto-created.
+    Initialize and verify database connection
     
-    Function ini hanya sebagai fallback jika manual setup.
+    This function verifies the database connection, checks for required
+    extensions, and lists available tables. Should be called on app startup.
     """
     try:
         with get_db_connection() as conn:
@@ -53,14 +130,14 @@ def init_db():
             # Test connection
             cursor.execute("SELECT version();")
             version = cursor.fetchone()
-            print(f"✓ PostgreSQL connected: {version['version']}")
+            logger.info(f"✓ PostgreSQL connected: {version['version']}")
             
             # Verify pgvector extension
             cursor.execute("SELECT * FROM pg_extension WHERE extname = 'vector';")
             if cursor.fetchone():
-                print("✓ pgvector extension is installed")
+                logger.info("✓ pgvector extension is installed")
             else:
-                print("⚠ Warning: pgvector extension not found. Run init.sql first!")
+                logger.warning("⚠ Warning: pgvector extension not found. Run init.sql first!")
             
             # Verify tables
             cursor.execute("""
@@ -70,14 +147,40 @@ def init_db():
             """)
             tables = cursor.fetchall()
             if tables:
-                print(f"✓ Found {len(tables)} tables:")
+                logger.info(f"✓ Found {len(tables)} tables:")
                 for table in tables:
-                    print(f"  - {table['table_name']}")
+                    logger.info(f"  - {table['table_name']}")
             else:
-                print("⚠ Warning: No tables found. Run init.sql first!")
+                logger.warning("⚠ Warning: No tables found. Run init.sql first!")
             
             conn.commit()
             
     except Exception as e:
-        print(f"✗ Database initialization error: {str(e)}")
+        logger.error(f"✗ Database initialization error: {str(e)}")
+        raise
+
+
+def execute_query(query: str, params: tuple = None, fetch_one: bool = False) -> any:
+    """
+    Execute a database query with automatic connection management
+    
+    Args:
+        query: SQL query string
+        params: Query parameters
+        fetch_one: If True, fetch only one result
+        
+    Returns:
+        Query results
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = get_db_cursor(conn)
+            cursor.execute(query, params)
+            
+            if fetch_one:
+                return cursor.fetchone()
+            else:
+                return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Query execution error: {str(e)}")
         raise

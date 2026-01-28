@@ -3,9 +3,9 @@ import { useCamera } from '../hooks/useCamera'
 import { useFaceDetection } from '../hooks/useFaceDetection'
 import { useContinuousDetection } from '../hooks/useContinuousDetection'
 import { drawBoundingBoxes, scaleDetections } from '../utils/canvasHelpers'
-import ImageDetection from './FaceDetection/ImageDetection'
-import WebcamDetection from './FaceDetection/WebcamDetection'
-import DetectionResults from './FaceDetection/DetectionResults'
+import ImageDetection from '../components/FaceDetection/ImageDetection'
+import WebcamDetection from '../components/FaceDetection/WebcamDetection'
+import DetectionResults from '../components/FaceDetection/DetectionResults'
 import './FaceDetection.css'
 
 const FaceDetection = () => {

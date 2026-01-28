@@ -1,35 +1,39 @@
+"""Face identification service - handles face identification and verification"""
 import numpy as np
-import cv2
-import base64
-from insightface.app import FaceAnalysis
+from typing import Tuple, Optional, Dict, Any, List
+
 from utils.logger import logger
 from utils.db import get_db_connection, get_db_cursor
+from utils.face_model import FaceAnalysisModel
+from utils.image_utils import decode_base64_image
+from utils.embedding_utils import (
+    calculate_cosine_similarity,
+    db_format_to_embedding
+)
+from utils.constants import FaceRecognition
 
-# Initialize InsightFace app for face recognition
-app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
-app.prepare(ctx_id=0, det_size=(640, 640))
 
-def decode_base64_image(base64_string):
-    """Decode base64 image string to numpy array"""
-    try:
-        if ',' in base64_string:
-            base64_string = base64_string.split(',')[1]
+def get_face_analyzer():
+    """Get face analysis model instance"""
+    return FaceAnalysisModel.get_instance()
+
+
+def extract_face_embedding(base64_image: str) -> Tuple[Optional[np.ndarray], Optional[str]]:
+    """
+    Extract face embedding from image
+    
+    Args:
+        base64_image: Base64 encoded image string
         
-        img_data = base64.b64decode(base64_string)
-        nparr = np.frombuffer(img_data, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        return img
-    except Exception as e:
-        logger.error(f"Error decoding base64 image: {str(e)}")
-        return None
-
-def extract_face_embedding(base64_image):
-    """Extract face embedding from image"""
+    Returns:
+        Tuple of (embedding, error_message)
+    """
     try:
         img = decode_base64_image(base64_image)
         if img is None:
             return None, "Invalid image data"
         
+        app = get_face_analyzer()
         faces = app.get(img)
         
         if len(faces) == 0:
@@ -40,7 +44,7 @@ def extract_face_embedding(base64_image):
         face = faces[0]
         det_score = float(face.det_score)
         
-        if det_score < 0.8:
+        if det_score < FaceRecognition.MIN_DETECTION_CONFIDENCE:
             return None, f"Face quality too low (score: {det_score:.2f})"
         
         embedding = face.embedding
@@ -50,24 +54,34 @@ def extract_face_embedding(base64_image):
         logger.error(f"Error extracting embedding: {str(e)}")
         return None, f"Error: {str(e)}"
 
-def cosine_similarity(embedding1, embedding2):
-    """Calculate cosine similarity between two embeddings"""
-    embedding1 = np.array(embedding1)
-    embedding2 = np.array(embedding2)
-    
-    dot_product = np.dot(embedding1, embedding2)
-    norm1 = np.linalg.norm(embedding1)
-    norm2 = np.linalg.norm(embedding2)
-    
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-    
-    return float(dot_product / (norm1 * norm2))
 
-def identify_face(base64_image, threshold=0.6):
+def _parse_db_embedding(db_embedding: Any) -> np.ndarray:
+    """
+    Parse embedding from database format to numpy array
+    
+    Args:
+        db_embedding: Embedding from database (string or already parsed)
+        
+    Returns:
+        Embedding as numpy array
+    """
+    if isinstance(db_embedding, str):
+        return db_format_to_embedding(db_embedding)
+    return np.array(db_embedding, dtype=np.float32)
+
+def identify_face(
+    base64_image: str,
+    threshold: float = FaceRecognition.DEFAULT_SIMILARITY_THRESHOLD
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
     Identify face from image by comparing with all registered faces in database
-    Returns: (success, message, result_data)
+    
+    Args:
+        base64_image: Base64 encoded image string
+        threshold: Similarity threshold for matching (0.0 to 1.0)
+        
+    Returns:
+        Tuple of (success, message, result_data)
     """
     try:
         # Extract embedding from input image
@@ -97,20 +111,14 @@ def identify_face(base64_image, threshold=0.6):
             return False, "No registered faces found in database", None
         
         # Calculate similarities
-        matches = []
         user_scores = {}  # Track best score per user
         
         for face in db_faces:
-            # Parse embedding from database (it's stored as string '[x,y,z,...]')
-            db_embedding_str = face['embedding']
-            if isinstance(db_embedding_str, str):
-                # Remove brackets and parse
-                db_embedding = np.array([float(x) for x in db_embedding_str.strip('[]').split(',')])
-            else:
-                db_embedding = np.array(db_embedding_str)
+            # Parse embedding from database
+            db_embedding = _parse_db_embedding(face['embedding'])
             
             # Calculate similarity
-            similarity = cosine_similarity(query_embedding, db_embedding)
+            similarity = calculate_cosine_similarity(query_embedding, db_embedding)
             
             user_id = face['user_id']
             
@@ -123,16 +131,6 @@ def identify_face(base64_image, threshold=0.6):
                     'similarity': similarity,
                     'embedding_id': face['id']
                 }
-            
-            matches.append({
-                'embedding_id': face['id'],
-                'user_id': user_id,
-                'user_name': face['name'],
-                'similarity': similarity
-            })
-        
-        # Sort by similarity (highest first)
-        matches.sort(key=lambda x: x['similarity'], reverse=True)
         
         # Get best match per user (sorted)
         best_per_user = sorted(user_scores.values(), key=lambda x: x['similarity'], reverse=True)
@@ -182,10 +180,22 @@ def identify_face(base64_image, threshold=0.6):
         logger.error(f"Error in identify_face: {str(e)}")
         return False, f"Identification error: {str(e)}", None
 
-def verify_face(base64_image, user_id, threshold=0.6):
+
+def verify_face(
+    base64_image: str,
+    user_id: int,
+    threshold: float = FaceRecognition.DEFAULT_SIMILARITY_THRESHOLD
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
-    Verify if face in image matches specific user
-    Returns: (success, message, result_data)
+    Verify if face in image matches specific user (1:1 verification)
+    
+    Args:
+        base64_image: Base64 encoded image string
+        user_id: User ID to verify against
+        threshold: Similarity threshold for verification
+        
+    Returns:
+        Tuple of (success, message, result_data)
     """
     try:
         # Extract embedding from input image
@@ -216,13 +226,8 @@ def verify_face(base64_image, user_id, threshold=0.6):
         # Calculate similarities with all user's embeddings
         similarities = []
         for face in db_faces:
-            db_embedding_str = face['embedding']
-            if isinstance(db_embedding_str, str):
-                db_embedding = np.array([float(x) for x in db_embedding_str.strip('[]').split(',')])
-            else:
-                db_embedding = np.array(db_embedding_str)
-            
-            similarity = cosine_similarity(query_embedding, db_embedding)
+            db_embedding = _parse_db_embedding(face['embedding'])
+            similarity = calculate_cosine_similarity(query_embedding, db_embedding)
             similarities.append(similarity)
         
         # Use best match (highest similarity)

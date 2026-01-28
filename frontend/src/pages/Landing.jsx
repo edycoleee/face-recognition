@@ -6,6 +6,13 @@ function Landing() {
 
   const cards = [
     {
+      title: '🔐 Login',
+      description: 'Face Recognition or Password Authentication',
+      icon: '🚀',
+      path: '/login',
+      color: '#9C27B0'
+    },
+    {
       title: 'API Halo',
       description: 'Test GET and POST endpoints for Halo API',
       icon: '👋',

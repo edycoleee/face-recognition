@@ -1,0 +1,133 @@
+tahap berikutnya buatkan fitur auth di backend flask api
+
+1. token expired 2 jam
+
+2. tambahkan dan sesuaikan kebutuhan tabel init.sql
+
+-- ================================================
+-- TABLE: auth_tokens
+-- ================================================
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    confidence REAL NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index untuk token lookup (primary authentication)
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_active ON auth_tokens(is_active) WHERE is_active = TRUE;
+
+3. endpoint api auth 
+
+api = Namespace("auth", description="Face Recognition Authentication API")
+
+
+# Password login model
+password_login_model = api.model("PasswordLogin", {
+    "email": fields.String(required=True, description='Email user', example='user@example.com'),
+    "password": fields.String(required=True, description='Password user', example='password123')
+})
+
+# Token verification model
+verify_model = api.model("VerifyToken", {
+    "token": fields.String(required=True, description='UUID token', example='550e8400-e29b-41d4-a716-446655440000')
+})
+
+# Logout model
+logout_model = api.model("Logout", {
+    "token": fields.String(required=True, description='UUID token', example='550e8400-e29b-41d4-a716-446655440000')
+})
+
+4. login dengan image
+@api.route("/login-face")
+class FaceLoginVerify(Resource):
+ Login dengan face verification (1:1 - LEBIH CEPAT & AKURAT)
+         """
+        face verification (1:1) untuk user specific.
+        
+        Keuntungan:
+        - ⚡ Lebih cepat (tidak perlu prediksi semua classes)
+        - 🎯 Lebih akurat (focused comparison)
+        - 💡 Real use case (user input email/username dulu)
+        - 🔒 More secure (explicit user claim + verification)
+        
+        Process:
+        1. User input email >> get user_id (dari email/username lookup) jika di temukan lanjut
+        2. Upload foto wajah >> open camera dari frontend
+        3. Verify apakah wajah cocok dengan user_id
+        4. Jika match dan confidence > threshold → generate token
+        
+        Input:
+            - email (form): email get ID user yang ingin login
+            - file (file): Face image
+        
+        Returns:
+            - match: True/False (apakah wajah cocok)
+            - user_id, name, token (jika success)
+            - confidence: Confidence score
+ """
+
+5. login dengan password
+@api.route("/login-pass")
+class PasswordLogin(Resource):
+ """
+        Login dengan email dan password (Traditional Authentication)
+        
+        Metode login tradisional menggunakan kredensial email & password.
+        Cocok sebagai fallback method jika face authentication gagal.
+        
+        Process:
+        1. User input email dan password
+        2. Verify credentials dengan database
+        3. Jika valid → generate UUID token
+        4. Return token untuk authentication
+        
+        Input:
+            - email: Email user (string)
+            - password: Password user (string)
+        
+        Returns:
+            - user_id, name, email
+            - token: UUID token untuk authentication
+            - expires_at: Token expiry time
+        
+        Keuntungan:
+        - 🔐 Standard & reliable
+        - 💻 Tidak perlu kamera
+        - ⚡ Instant verification
+        - 🔄 Good fallback method
+        """
+
+6. verify token
+@api.route("/verify")
+class VerifyToken(Resource):
+        """
+        Verify token validity dan return user info
+        
+        Returns user information jika token valid dan belum expired
+        """
+
+7. logout
+@api.route("/logout")
+        """
+        Logout (deactivate token)
+        """
+
+8. get token by id
+@api.route("/tokens/<int:user_id>")
+"""Get all active tokens untuk user"""
+
+
+Frontend implementasi auth api dari flask backend
+
+1. landing page >> card Login
+2. login page (login with face + login with password)
+3. login with face ( input email >> start camera >> verify 1:1 >> token) >> Dashboard Page (restricted page)
+4. login with password ( input email + pass >> verify >> token) >> Dashboard Page (restricted page)
+5. dashboard page (logout), pada halaman ini nantinya berisi content
