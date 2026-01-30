@@ -46,14 +46,27 @@ class UserList(Resource):
     """User list operations"""
     
     @api.doc("get_all_users")
+    @api.param('email', 'Filter by email address', type=str, required=False)
     @api.response(200, "Success")
     @handle_exceptions
     def get(self):
         """
-        Get all users
+        Get all users or filter by email
         
         Returns list of all users with face registration status.
+        Use ?email=user@example.com to filter by specific email.
         """
+        email = request.args.get('email')
+        
+        if email:
+            # Get user by email
+            user = UserService.get_user_by_email(email)
+            if user:
+                return success_response("User found", user)
+            else:
+                return error_response("User not found", 404)
+        
+        # Get all users
         users = UserService.get_all_users()
         return success_response("Users retrieved successfully", users)
 

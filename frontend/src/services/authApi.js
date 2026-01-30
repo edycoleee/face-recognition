@@ -129,6 +129,26 @@ export const getUserTokens = async (userId) => {
 };
 
 /**
+ * Get user by email (for attendance purposes)
+ * 
+ * @param {string} email - User email
+ * @returns {Promise} Response with user info
+ */
+export const getUserByEmail = async (email) => {
+  const response = await fetch(`${API_BASE_URL}/users?email=${encodeURIComponent(email)}`, {
+    method: 'GET',
+  });
+
+  const data = await response.json();
+  
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'User not found');
+  }
+
+  return data;
+};
+
+/**
  * Save authentication data to localStorage
  * 
  * @param {Object} authData - Authentication data from login response
@@ -228,4 +248,21 @@ export const logoutAndClear = async () => {
   }
   
   clearAuthData();
+};
+
+// Export all functions as authApi object
+export const authApi = {
+  loginWithFace,
+  loginWithPassword,
+  verifyToken,
+  logout,
+  getUserTokens,
+  getUserByEmail,
+  saveAuthData,
+  getAuthToken,
+  getUserData,
+  isTokenExpired,
+  isAuthenticated,
+  clearAuthData,
+  logoutAndClear
 };

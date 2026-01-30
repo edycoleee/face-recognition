@@ -59,3 +59,21 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_active ON auth_tokens(is_active) WHERE is_active = TRUE;
+
+-- ================================================
+-- TABLE: attendance
+-- ================================================
+CREATE TABLE IF NOT EXISTS attendance (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    method VARCHAR(50) NOT NULL CHECK (method IN ('password', 'face-one', 'face-all', 'face-multi')),
+    face_confidence FLOAT,            -- Null untuk password method, berisi nilai untuk face methods
+    presence VARCHAR(20) NOT NULL CHECK (presence IN ('incoming', 'outcoming')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index untuk query attendance
+CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_created_at ON attendance(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_method ON attendance(method);
+CREATE INDEX IF NOT EXISTS idx_attendance_presence ON attendance(presence);

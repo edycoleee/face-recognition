@@ -6,25 +6,18 @@ function Landing() {
 
   const cards = [
     {
-      title: 'Face Login',
-      description: 'Face Recognition or Password Authentication',
-      icon: '🚀',
-      path: '/login',
-      color: '#9C27B0'
-    },
-    {
-      title: 'API Halo',
-      description: 'Test GET and POST endpoints for Halo API',
-      icon: '👋',
-      path: '/halo',
-      color: '#4CAF50'
-    },
-    {
       title: 'Face Detection',
       description: 'Upload images and detect faces using AI',
       icon: '🎭',
       path: '/face-detection',
       color: '#2196F3'
+    },
+    {
+      title: 'Face Registration',
+      description: 'Manage users with CRUD operations and Image',
+      icon: '👥',
+      path: '/users',
+      color: '#FF9800'
     },
     {
       title: 'Face Recognition',
@@ -34,11 +27,25 @@ function Landing() {
       color: '#E91E63'
     },
     {
-      title: 'Face Registration',
-      description: 'Manage users with CRUD operations and Image',
-      icon: '👥',
-      path: '/users',
-      color: '#FF9800'
+      title: 'Face Login',
+      description: 'Face Recognition or Password Authentication',
+      icon: '🚀',
+      path: '/login',
+      color: '#9C27B0'
+    },
+    {
+      title: 'Face Attendance',
+      description: 'Record attendance with password or face recognition',
+      icon: '✅',
+      path: '/attendance',
+      color: '#00BCD4'
+    },
+    {
+      title: 'API Halo',
+      description: 'Test GET and POST endpoints for Halo API',
+      icon: '👋',
+      path: '/halo',
+      color: '#4CAF50'
     }
   ]
 

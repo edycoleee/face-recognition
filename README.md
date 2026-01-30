@@ -35,26 +35,48 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - PostgreSQL pgvector storage
 
 ### ✅ Tahap 4: Face Recognition & Identification
+- **Standard Mode**: Upload image atau webcam dengan mode selector
+- **Optimized Popup Mode**: 
+  - Dual canvas architecture (input + output separation)
+  - Downscaling 320px untuk API call lebih cepat
+  - Manual capture & continuous mode (3s interval)
+  - Real-time bounding box dengan identity label
+  - Confidence scoring display
 - 1:N Face identification (compare dengan semua user)
 - 1:1 Face verification (verify specific user)
 - Cosine similarity matching
-- **Oval Face Guide**: Consistent positioning untuk accurate prediction
-- Confidence scoring & top-5 matches
 - Real-time prediction dari webcam
 
-### Tahap 5 : Optimalisasi face recognition and detection for auth
-- input user
-- 1:1 Face identification (compare dengan semua user)
-- login get token
+### ✅ Tahap 5: Authentication System
+- **Face Login Popup**: OAuth2-style popup authentication
+- **Login Page**: Username/password + Face Login option
+- JWT token generation & validation
+- Session management dengan localStorage
+- Protected routes dengan ProtectedRoute component
+- Auto-redirect untuk authenticated users
 
-### Tahap 6 : Attendance from manual capture camera
-- input user
-- 1:1 Face identification (compare dengan semua user)
-- jika tertangkap di kamera maka insert attendance_logs, jika sebelum 1 jam maka tidak insert log lagi, jika >1jam maka insert log lagi
+### ✅ Tahap 6: Face Attendance System
+- **Single Attendance** (`1:1`): Manual capture untuk specific user
+- **Multi Attendance** (`N:N`): Multi-face detection dalam 1 frame
+- **Continuous Attendance**: Auto-recognition setiap 3 detik
+  - Dual canvas optimization
+  - 2-hour duplicate protection
+  - Session statistics (total detected, successful records)
+  - Real-time attendance rate display
+- Database logging ke `attendance_logs` table
+- Duplicate prevention (can't record within 2 hours)
+- Attendance history tracking per user
 
-### Tahap 7 : Attendance from camera
-- 1:N Face identification (compare dengan semua user)
-- jika tertangkap di kamera maka insert attendance_logs, jika sebelum 1 jam maka tidak insert log lagi, jika >1jam maka insert log lagi
+### ✅ Tahap 7: Face Detection Enhancement
+- **3-Tab Navigation**: Upload Image | Webcam | Webcam Continuous
+- **Upload Mode**: Drag & drop atau file selector
+- **Standard Webcam**: Single capture dengan bounding boxes
+- **Continuous Detection Popup**:
+  - Dual canvas (input capture + output render)
+  - Downscaling 320px untuk accurate bounding boxes
+  - Auto-detection setiap interval
+  - Summary-focused layout (stats cards + latest detection)
+  - Detection rate monitoring
 
 ---
 
@@ -316,7 +338,226 @@ Delete all face embeddings untuk user.
 
 ---
 
-### 5. Face Identification API (/api/identify)
+### 5. Face Recognition API (/api/detect/recognize)
+
+#### POST /api/detect/recognize
+Detect dan recognize faces dalam image (combined detection + identification).
+
+**Request Body:**
+```json
+{
+  "image": "data:image/jpeg;base64,...",
+  "threshold": 0.6
+}
+```
+
+**Response:**
+```json
+{
+  "faces": [
+    {
+      "bbox": [x1, y1, x2, y2],
+      "confidence": 0.99,
+      "identified": true,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "user_id": 1,
+      "confidence": 0.875
+    },
+    {
+      "bbox": [x1, y1, x2, y2],
+      "confidence": 0.95,
+      "identified": false,
+      "name": "Unknown",
+      "confidence": 0.0
+    }
+  ],
+  "count": 2,
+  "image_shape": [480, 640, 3]
+}
+```
+
+---
+
+### 6. Authentication API (/api/auth)
+
+#### POST /api/auth/login
+Login dengan username & password.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com"
+    }
+  }
+}
+```
+
+#### POST /api/auth/face-login
+Login dengan face recognition.
+
+**Request Body:**
+```json
+{
+  "image": "data:image/jpeg;base64,...",
+  "threshold": 0.6
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Face login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "confidence": 87.5
+  }
+}
+```
+
+#### GET /api/auth/verify
+Verify JWT token validity.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Token is valid",
+  "data": {
+    "user_id": 1,
+    "email": "john@example.com"
+  }
+}
+```
+
+---
+
+### 7. Attendance API (/api/attendance)
+
+#### POST /api/attendance/face-single
+Record attendance untuk specific user (1:1).
+
+**Request Body:**
+```json
+{
+  "user_id": 1,
+  "image": "data:image/jpeg;base64,...",
+  "threshold": 0.6
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance recorded for John Doe",
+  "data": {
+    "attendance_id": 123,
+    "user_id": 1,
+    "user_name": "John Doe",
+    "timestamp": "2026-01-30T10:30:00",
+    "confidence": 87.5
+  }
+}
+```
+
+#### POST /api/attendance/face-multi
+Record attendance untuk multiple faces dalam 1 image (N:N).
+
+**Request Body:**
+```json
+{
+  "image": "data:image/jpeg;base64,...",
+  "threshold": 0.6
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance recorded for 3 users",
+  "data": {
+    "total_faces": 5,
+    "recognized": 3,
+    "recorded": 2,
+    "skipped": 1,
+    "attendances": [
+      {
+        "user_id": 1,
+        "user_name": "John Doe",
+        "recorded": true,
+        "reason": "Success",
+        "confidence": 87.5
+      },
+      {
+        "user_id": 2,
+        "user_name": "Jane Smith",
+        "recorded": false,
+        "reason": "Already recorded within 2 hours",
+        "confidence": 85.2
+      }
+    ]
+  }
+}
+```
+
+#### GET /api/attendance/users/{user_id}
+Get attendance logs untuk specific user.
+
+**Query Parameters:**
+- `limit` (optional): Number of records (default 50)
+- `offset` (optional): Pagination offset (default 0)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Found 10 attendance records",
+  "data": {
+    "user_id": 1,
+    "user_name": "John Doe",
+    "total": 10,
+    "logs": [
+      {
+        "id": 123,
+        "timestamp": "2026-01-30T10:30:00",
+        "confidence": 87.5
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 8. Face Identification API (/api/identify)
 
 #### POST /api/identify/
 Identify face dari image (1:N matching - compare dengan semua user).
@@ -348,29 +589,8 @@ Identify face dari image (1:N matching - compare dengan semua user).
         "user_name": "John Doe",
         "confidence": 87.5,
         "similarity": 0.8750
-      },
-      {
-        "user_id": 2,
-        "user_name": "Jane Smith",
-        "confidence": 45.2,
-        "similarity": 0.4520
       }
     ]
-  }
-}
-```
-
-**Response (No Match):**
-```json
-{
-  "success": true,
-  "message": "No match found (confidence too low)",
-  "data": {
-    "identified": false,
-    "message": "No matching face found in database",
-    "confidence": 45.2,
-    "threshold": 60,
-    "top_matches": [...]
   }
 }
 ```
@@ -412,20 +632,37 @@ Verify face matches specific user (1:1 verification).
 
 ### 1. Landing Page (`/`)
 - Navigation ke semua fitur aplikasi
-- Cards: Halo API, Face Detection, User Management
+- Protected dashboard access
+- Feature cards: Detection, Recognition, Attendance, Users
 
-### 2. Halo API Page (`/halo`)
-- Test GET dan POST endpoints
-- Simple form interface
+### 2. Login Page (`/login`)
+- **Standard Login**: Email + Password authentication
+- **Face Login**: OAuth2-style popup dengan face recognition
+- JWT token generation & storage
+- Auto-redirect untuk authenticated users
+- Session persistence dengan localStorage
 
-### 3. Face Detection Page (`/face-detection`)
-- **Upload Image Mode**: Upload gambar dan deteksi wajah
-- **Webcam Mode**: 
-  - Real-time webcam capture
-  - Single capture & detect
-  - Continuous detection mode (500ms interval)
+### 3. Dashboard (`/dashboard`)
+- Protected route (requires authentication)
+- Quick access ke semua features
+- User profile display
+- Logout functionality
+
+### 4. Face Detection Page (`/face-detection`)
+- **3-Tab Navigation**:
+  1. **Upload Image**: Drag & drop atau file selector
+  2. **Webcam**: Standard single capture mode
+  3. **Webcam Continuous**: Popup dengan dual canvas
+- **Webcam Continuous Popup Features**:
+  - Dual canvas architecture (input + output)
+  - Downscaling 320px untuk accurate bounding boxes
+  - Auto-detection dengan interval
+  - Summary stats (total detected, detection rate)
+  - Latest detection display
 - **Visual Features**:
-  - Green bounding boxes di wajah
+  - Green bounding boxes
+  - Confidence scores
+  - Face count display
   - Confidence score display
   - Facial landmarks (red dots)
   - Age & gender prediction
@@ -444,7 +681,61 @@ Verify face matches specific user (1:1 verification).
   - 📷 Register Face - Navigate ke registration page
   - 🔍 Predict - Navigate ke prediction page (only for registered users)
 
-### 5. Face Registration Page (`/users/:userId/register-face`)
+### 5. Face Recognition Page (`/face-recognition`)
+- **2-Tab Navigation**:
+  1. **Standard Mode**: Upload image atau webcam dengan mode selector
+  2. **Webcam Popup Optimized**: Dual canvas optimization
+- **Optimized Popup Features**:
+  - Dual canvas (input capture + output render)
+  - Downscaling 320px untuk faster API calls
+  - **Manual Capture**: Single click recognition
+  - **Start Continuous**: Auto-recognition setiap 3 detik
+  - Real-time bounding box dengan identity labels
+  - Result panel dengan user info (name, email, confidence)
+  - Detection counter untuk continuous mode
+- **Results Display**:
+  - Avatar dengan initial letter
+  - User name & email
+  - Confidence percentage dengan progress bar
+  - Success badge indicator
+  - Tips untuk optimal recognition
+
+### 6. Attendance Page (`/attendance`)
+- **5-Tab Navigation**:
+  1. **Face 1:1**: Single user attendance (specific user)
+  2. **Face N:N**: Multi-face attendance (multiple users)
+  3. **Face N:N Popup**: Multi-face dengan popup window
+  4. **Face N:N Start Continuous**: Multi-face popup dengan continuous mode
+  5. **Face N:N Continuous**: Auto-recognition popup setiap 3 detik
+- **Continuous Popup Features**:
+  - Dual canvas architecture
+  - Auto-recognition every 3 seconds
+  - 2-hour duplicate protection
+  - Session statistics:
+    * Total faces detected
+    * Successfully recorded
+    * Detection rate percentage
+  - Real-time attendance logging
+  - Result cards dengan user info
+- **Attendance Tracking**:
+  - Database logging ke `attendance_logs`
+  - Cannot record within 2 hours (duplicate prevention)
+  - Timestamp & confidence score recording
+
+### 7. User Management Page (`/users`)
+- **User Table dengan Pagination** (15 users per page)
+- **Face Registration Status**: 
+  - ✅ Registered (X) - Hijau
+  - ❌ Not Registered - Merah
+- **CRUD Operations**:
+  - Add New User
+  - Edit User
+  - Delete User (cascade delete embeddings)
+- **Action Buttons**:
+  - 📷 Register Face - Navigate ke registration page
+  - 🔍 Predict - Navigate ke prediction page (only for registered users)
+
+### 8. Face Registration Page (`/users/:userId/register-face`)
 - **Camera Control**: Start/Stop webcam
 - **🎯 Oval Face Guide**: 
   - Visual template berbentuk oval untuk optimal positioning
@@ -465,7 +756,7 @@ Verify face matches specific user (1:1 verification).
   - Target: 5-10 images per user
 - **Submit**: Register semua captures ke database
 
-### 6. Face Prediction Page (`/users/:userId/predict`)
+### 9. Face Prediction Page (`/users/:userId/predict`)
 - **Camera Capture**: Webcam integration
 - **🎯 Oval Face Guide**:
   - Same visual template untuk consistency
@@ -502,11 +793,19 @@ Verify face matches specific user (1:1 verification).
 - **Flask-CORS** - Cross-origin support
 - **psycopg2-binary** - PostgreSQL driver
 - **pgvector** - Vector similarity search extension
+- **PyJWT** - JWT token generation & validation
+- **Werkzeug** - Password hashing (pbkdf2:sha256)
 
 ### Frontend
 - **React 18** - UI library
 - **Vite** - Build tool & dev server
 - **React Router DOM v6** - Client-side routing
+- **JavaScript (ES6+)** - Modern JavaScript
+- **Canvas API** - Drawing bounding boxes & overlays
+- **Fetch API** - HTTP requests
+- **MediaDevices API** - Webcam access
+- **LocalStorage API** - Session persistence
+- **Window.postMessage** - Popup communication (OAuth2-style)
 - **JavaScript (SWC)** - Fast compilation
 - **Canvas API** - Drawing bounding boxes & oval guides
 - **Fetch API** - HTTP requests
@@ -518,15 +817,19 @@ Verify face matches specific user (1:1 verification).
 - **pgAdmin 4** - Database management UI
 
 ---
+
+## 📁 Project Structure
+
 ```
-#Face-recognition/
+face-recognition/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── __init__.py
 │   │   │   ├── halo.py                    # Halo API endpoints
-│   │   │   ├── detect.py                  # Face detection endpoints
+│   │   │   ├── detect.py                  # Face detection & recognition
 │   │   │   ├── users.py                   # User CRUD endpoints
+│   │   │   ├── auth.py                    # Authentication (login, face-login)
 │   │   │   ├── face_registration.py       # Face registration endpoints
 │   │   │   └── face_identification.py     # Face identification endpoints
 │   │   ├── services/
@@ -534,26 +837,61 @@ Verify face matches specific user (1:1 verification).
 │   │   │   ├── halo_service.py
 │   │   │   ├── detection_service.py       # Face detection logic
 │   │   │   ├── user_service.py            # User CRUD logic
+│   │   │   ├── auth_service.py            # Authentication & JWT logic
 │   │   │   ├── recognition_service.py     # Face registration logic
 │   │   │   └── identification_service.py  # Face matching logic
 │   │   ├── utils/
-│   │   │   ├── db.py                      # Database connection helpers
-│   │   │   ├── logger.py                  # Logging configuration
-│   │   │   └── response.py                # Standard response helpers
+│   │   │   ├── db.py                      # Database helpers
+│   │   │   ├── logger.py                  # Logging
+│   │   │   ├── response.py                # Response helpers
+│   │   │   ├── decorators.py              # JWT validation
+│   │   │   └── validators.py              # Input validation
 │   │   ├── tests/
-│   │   │   ├── test_users.py              # User API unit tests
+│   │   │   ├── test_users.py
 │   │   │   └── test_halo.py
-│   │   ├── models/
-│   │   ├── config.py
-│   │   └── main.py                        # Flask app entry point
+│   │   ├── config.py                      # Configuration
+│   │   └── main.py                        # Flask app entry
 │   ├── requirements.txt
 │   └── install_deps.sh
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── FaceDetection.jsx          # Face detection component
-│   │   │   └── FaceDetection.css
-│   Database Setup
+│   │   │   ├── FaceDetection.jsx
+│   │   │   ├── FaceRecognition.jsx
+│   │   │   ├── ProtectedRoute.jsx         # Auth protection
+│   │   │   └── *.css
+│   │   ├── pages/
+│   │   │   ├── Landing.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── FaceLoginPopup.jsx
+│   │   │   ├── FaceDetectionPage.jsx      # 3 tabs
+│   │   │   ├── FaceDetectionContinuousPopup.jsx
+│   │   │   ├── FaceRecognitionPage.jsx    # 2 tabs
+│   │   │   ├── FaceRecognitionOptimizedPopup.jsx
+│   │   │   ├── AttendancePage.jsx         # 5 tabs
+│   │   │   ├── FaceAttendancePopup.jsx
+│   │   │   ├── FaceAttendanceMultiPopup.jsx
+│   │   │   ├── FaceAttendanceContinuousPopup.jsx
+│   │   │   ├── UsersPage.jsx
+│   │   │   ├── FaceRegistration.jsx
+│   │   │   ├── FacePrediction.jsx
+│   │   │   └── *.css
+│   │   ├── services/
+│   │   │   ├── authApi.js
+│   │   │   ├── attendanceApi.js
+│   │   │   └── userApi.js
+│   │   ├── utils/
+│   │   │   ├── popupAuth.js
+│   │   │   ├── popupAttendance.js
+│   │   │   ├── popupDetection.js
+│   │   │   └── popupRecognition.js
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+├── database/
 │   ├── docker-compose.yml                 # PostgreSQL + pgAdmin
 │   ├── init.sql                           # Database schema
 │   └── apply_schema.sh                    # Schema update script
@@ -626,113 +964,178 @@ curl -X POST http://localhost:5000/api/identify/ \
 
 ## 🚀 Complete Usage Flow
 
-### 1. User Registration & Management
+### 1. Authentication
 ```
-1. Buka http://localhost:5173/users
-2. Klik "+ Add New User"
-3. Isi nama, email, password
-4. User muncul di table dengan status "❌ Not Registered"
+1. Buka http://localhost:5173/login
+2. Option 1 - Standard Login:
+   - Masukkan email & password
+   - Click "Login"
+   - Redirect ke dashboard
+3. Option 2 - Face Login:
+   - Click "Login with Face Recognition"
+   - Popup terbuka dengan camera
+   - Capture foto wajah
+   - Sistem mengenali & auto-login
+   - JWT token disimpan di localStorage
 ```
 
-### 2. Face Registration (Multi-Image)
+### 2. User Registration & Management
 ```
-1. Di Feature Highlights
+1. Login ke dashboard
+2. Navigate ke /users
+3. Click "+ Add New User"
+4. Isi nama, email, password
+5. User muncul di table dengan status "❌ Not Registered"
+```
 
-### ✅ Implemented Features
-1. **Face Detection**
-   - Upload image detection
-   - Real-time webcam detection
-   - Continuous detection mode
-   - Age & gender prediction
-   - Bounding boxes & landmarks
+### 3. Face Registration (Multi-Image)
+```
+1. Di Users table, click "📷 Register Face" button
+2. Camera terbuka dengan Oval Face Guide
+3. Position wajah di dalam oval (cyan border → green)
+4. Pilih mode:
+   - Manual: Click "Capture" untuk tiap gambar (kontrol penuh)
+   - Auto: Auto-capture tiap 2 detik (hands-free)
+5. Capture 5-10 gambar (berbagai angle & ekspresi)
+6. System validate otomatis (quality > 80%, single face, inside oval)
+7. Review captures (dapat delete yang kurang bagus)
+8. Click "Register X Faces"
+9. Backend save embeddings ke PostgreSQL (pgvector)
+10. Status berubah: "✅ Registered (10)"
+```
 
-2. **User Management**
-   - Complete CRUD operations
-   - PostgreSQL persistence
-   - Pagination (15 per page)
-   - Face registration status tracking
+### 4. Face Recognition
+```
+1. Navigate ke /face-recognition
+2. Option 1 - Standard Mode:
+   - Upload image atau gunakan webcam
+   - Click "Recognize"
+   - Lihat hasil (name, email, confidence)
+3. Option 2 - Optimized Popup:
+   - Click "Open Optimized Recognition"
+   - Popup dengan dual canvas terbuka
+   - Manual: Click "Capture & Recognize"
+   - Continuous: Click "Start Continuous" (auto setiap 3s)
+   - Hasil tampil di panel kanan dengan confidence bar
+```
 
-3. **Face Registration**
-   - Multi-image capture (5-10 images)
-   - Manual & Auto capture modes
-   - **🎯 Oval Face Guide** untuk optimal positioning
-   - Real-time validation (quality + single face + position)
-   - 512-dimensional embedding extraction
-   - pgvector storage with IVFFLAT index
+### 5. Face Detection
+```
+1. Navigate ke /face-detection
+2. Pilih tab:
+   - Upload Image: Drag & drop file
+   - Webcam: Single capture detection
+   - Webcam Continuous: Popup dengan dual canvas
+3. Webcam Continuous features:
+   - Auto-detection dengan downscaling 320px
+   - Summary stats (total detected, detection rate)
+   - Accurate bounding boxes
+```
 
-4. **Face Identification**
-   - 1:N identification (search all users)
-   - 1:1 verification (specific user)
-   - **🎯 Oval Face Guide** untuk consistent positioning
-   - Cosine similarity matching
-   - Configurable threshold (default 60%)
-   - Top-5 matches dengan confidence scores
-   - Real-time webcam prediction
-
-### 🔄 Future Enhancements
-1. Face liveness detection
-2. Face anti-spoofing
-3. Attendance logging system
-4. Real-time face tracking
-5. Multi-face identification
-6. Face clustering & grouping
-7. Performance optimization (GPU support)
-8. Mobile app integration
+### 6. Face Attendance
+```
+1. Navigate ke /attendance
+2. Pilih mode (5 tabs):
+   - Face 1:1: Specific user attendance
+   - Face N:N: Multi-face attendance
+   - Face N:N Popup: Multi-face dengan popup
+   - Face N:N Start Continuous: Multi-face continuous
+   - Face N:N Continuous: Auto-recognition setiap 3s
+3. Continuous mode features:
+   - Auto-recognize multiple faces
+   - 2-hour duplicate protection
+   - Session statistics
+   - Real-time attendance logging
+4. Database:
+   - Attendance logged ke attendance_logs table
+   - Cannot record within 2 hours (same user)
+```
 
 ---
 
 ## 📝 Database Schema
-
-### Table: users
 ```sql
-CREATE TABLE users (
+-- ================================================
+-- FACE RECOGNITION ATTENDANCE DATABASE INITIALIZATION
+-- PostgreSQL + pgvector
+-- ================================================
+
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- ================================================
+-- TABLE: users
+-- ================================================
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-```
 
-### Table: face_embeddings
-```sql
-CREATE TABLE face_embeddings (
+-- Index untuk email lookup (sering dipakai untuk login)
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- ================================================
+-- TABLE: face_embeddings
+-- ================================================
+CREATE TABLE IF NOT EXISTS face_embeddings (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    embedding VECTOR(512) NOT NULL,  -- Face embedding vector
-    image_path VARCHAR(500),          -- Optional reference image
-    quality_score FLOAT,              -- Detection confidence
+    embedding VECTOR(512) NOT NULL,  -- Face embedding vector (512 dimensions)
+    image_path VARCHAR(500),          -- Optional: path to reference image
+    quality_score FLOAT,              -- Detection confidence score
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- IVFFLAT index untuk vector similarity search
-CREATE INDEX idx_face_embeddings_vector 
+-- Index untuk user_id lookup
+CREATE INDEX IF NOT EXISTS idx_face_embeddings_user_id ON face_embeddings(user_id);
+
+-- Index untuk vector similarity search (cosine similarity)
+-- Lists = 100 adalah default yang baik untuk dataset kecil-menengah
+CREATE INDEX IF NOT EXISTS idx_face_embeddings_vector 
 ON face_embeddings USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
-```lik "Register X Faces"
-6. Backend save embeddings ke PostgreSQL (pgvector)
-7. Status di Users table berubah: "✅ Registered (10)"
+
+-- ================================================
+-- TABLE: auth_tokens
+-- ================================================
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    confidence REAL NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index untuk token lookup (primary authentication)
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_active ON auth_tokens(is_active) WHERE is_active = TRUE;
+
+-- ================================================
+-- TABLE: attendance
+-- ================================================
+CREATE TABLE IF NOT EXISTS attendance (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    method VARCHAR(50) NOT NULL CHECK (method IN ('password', 'face-one', 'face-all', 'face-multi')),
+    face_confidence FLOAT,            -- Null untuk password method, berisi nilai untuk face methods
+    presence VARCHAR(20) NOT NULL CHECK (presence IN ('incoming', 'outcoming')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index untuk query attendance
+CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_created_at ON attendance(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_method ON attendance(method);
+CREATE INDEX IF NOT EXISTS idx_attendance_presence ON attendance(presence);
 ```
 
-### 3. Face Prediction/Identification
-```
-1. Di Users table, klik "🔍 Predict" (muncul setelah register)
-2. Klik "Start Camera"
-3. Klik "Capture & Predict"
-4. Backend:
-   - Extract embedding dari captured image
-   - Compare dengan SEMUA embeddings di database (cosine similarity)
-   - Sort by similarity (highest first)
-5. Results:
-   ✅ Match Found (>= 60%):
-      - User name, email
-      - Confidence: 87.5%
-      - Top 5 matches dengan ranking
-   ❌ No Match (< 60%):
-      - Best confidence: 45.2%
-      - Threshold: 60.0%
-      - Top 5 closest matches
----
 
 ## 🔧 Development
 

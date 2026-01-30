@@ -14,6 +14,7 @@ from api.users import api as users_ns
 from api.face_registration import api as face_ns
 from api.face_identification import api as identify_ns
 from api.auth import api as auth_ns
+from api.attendance import api as attendance_ns
 from utils.constants import API, FileSystem
 from utils.logger import logger
 
@@ -40,6 +41,7 @@ def register_namespaces(api: Api) -> None:
     api.add_namespace(face_ns, path="/face")
     api.add_namespace(identify_ns, path="/identify")
     api.add_namespace(auth_ns, path="/auth")
+    api.add_namespace(attendance_ns, path="/attendance")
 
 
 def register_routes(app: Flask) -> None:

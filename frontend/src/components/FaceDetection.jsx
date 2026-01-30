@@ -8,9 +8,9 @@ import WebcamDetection from './FaceDetection/WebcamDetection'
 import DetectionResults from './FaceDetection/DetectionResults'
 import './FaceDetection.css'
 
-const FaceDetection = () => {
+const FaceDetection = ({ initialMode = 'image' }) => {
   // Mode state
-  const [detectionMode, setDetectionMode] = useState('image') // 'image' or 'webcam'
+  const [detectionMode, setDetectionMode] = useState(initialMode) // 'image' or 'webcam'
   
   // Image mode state
   const [selectedFile, setSelectedFile] = useState(null)
@@ -25,6 +25,11 @@ const FaceDetection = () => {
   
   // Temp canvas for downscaling
   const tempCanvasRef = useRef(null)
+
+  // Sync detectionMode with initialMode prop
+  useEffect(() => {
+    setDetectionMode(initialMode)
+  }, [initialMode])
 
   // Continuous detection function
   const performContinuousDetection = useCallback(async () => {
@@ -190,24 +195,6 @@ const FaceDetection = () => {
 
   return (
     <div className="face-detection">
-      <h1>Face Detection</h1>
-
-      {/* Mode Selection */}
-      <div className="mode-selection">
-        <button
-          className={detectionMode === 'image' ? 'active' : ''}
-          onClick={() => handleModeChange('image')}
-        >
-          Upload Image
-        </button>
-        <button
-          className={detectionMode === 'webcam' ? 'active' : ''}
-          onClick={() => handleModeChange('webcam')}
-        >
-          Webcam
-        </button>
-      </div>
-
       {/* Image Upload Mode */}
       {detectionMode === 'image' && (
         <ImageDetection

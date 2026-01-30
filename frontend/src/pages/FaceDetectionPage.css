@@ -50,8 +50,275 @@
   width: 100%;
 }
 
+/* Mode Selector */
+.face-detection-page .mode-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+  max-width: 1200px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.face-detection-page .mode-btn {
+  flex: 1;
+  padding: 1rem;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.face-detection-page .mode-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.face-detection-page .mode-btn.active {
+  background: white;
+  color: #667eea;
+  border-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 .face-detection-page .detection-content {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
+}
+
+/* Continuous Mode Card */
+.continuous-mode-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.continuous-mode-card h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+  font-size: 1.75rem;
+}
+
+.continuous-mode-card .mode-description {
+  color: #6b7280;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.continuous-mode-card .settings-section {
+  margin-bottom: 2rem;
+}
+
+.continuous-mode-card .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.continuous-mode-card .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.continuous-mode-card .threshold-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+}
+
+.continuous-mode-card .threshold-control input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #d1d5db;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.continuous-mode-card .threshold-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.continuous-mode-card .threshold-control input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.continuous-mode-card .threshold-value {
+  min-width: 45px;
+  text-align: center;
+  font-weight: 700;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.continuous-mode-card .instructions {
+  background: #f0f9ff;
+  border: 2px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.continuous-mode-card .instructions h3 {
+  margin: 0 0 1rem 0;
+  color: #1e40af;
+  font-size: 1.1rem;
+}
+
+.continuous-mode-card .instructions ol {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #1e3a8a;
+}
+
+.continuous-mode-card .instructions ol li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.continuous-mode-card .instructions .note {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+
+.continuous-mode-card .btn-start-continuous {
+  width: 100%;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 1.5rem;
+}
+
+.continuous-mode-card .btn-start-continuous:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.continuous-mode-card .btn-start-continuous:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.continuous-mode-card .message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.continuous-mode-card .error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 2px solid #fecaca;
+}
+
+.continuous-mode-card .success-message {
+  background: #d1fae5;
+  border: 2px solid #6ee7b7;
+}
+
+.continuous-mode-card .success-header {
+  font-weight: 700;
+  color: #065f46;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.continuous-mode-card .success-details {
+  color: #047857;
+}
+
+.continuous-mode-card .success-details p {
+  margin: 0.5rem 0;
+}
+
+.continuous-mode-card .info-card {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.continuous-mode-card .info-card h3 {
+  margin: 0 0 1rem 0;
+  color: #166534;
+  font-size: 1.1rem;
+}
+
+.continuous-mode-card .info-card ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #15803d;
+}
+
+.continuous-mode-card .info-card ul li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .face-detection-page .mode-selector {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .face-detection-page .mode-btn {
+    padding: 0.875rem;
+    font-size: 0.95rem;
+  }
+
+  .face-detection-page h1 {
+    font-size: 2rem;
+  }
+
+  .face-detection-page .subtitle {
+    font-size: 1rem;
+  }
+
+  .continuous-mode-card {
+    padding: 1.5rem;
+  }
+
+  .continuous-mode-card h2 {
+    font-size: 1.5rem;
+  }
 }

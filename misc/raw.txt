@@ -153,3 +153,25 @@ Rank	Name	Confidence	Score
 2	subject01	-10.24%	-0.1024
 
 dengan gambar yang sama
+
+
+
+tahap berikutnya buatkan fitur face-attendance di backend flask api
+
+1. api.add_namespace(attendance_ns, path="/attendance")
+
+2. tambahkan dan sesuaikan kebutuhan tabel init.sql
+
+3. endpoint api attendance
+ - /attendance-pssword 
+ {user, password, presence (incoming / outcaming), createdat}
+ - /attendance-face-one >> pencarian wajah 1:1 >> nantinya fronted popup camera untuk melihat satu user dibandingkan dengan data satu user
+ {user, face_confidence, presence (incoming / outcaming), createdat}
+ - /attendance-face-all  >> pencarian wajah 1:N >> nantinya fronted popup camera untuk melihat user lewat dibandingkan semua data user
+ {user, face_confidence, presence (incoming / outcaming), createdat}
+  - /attendance-face-multi  >> pencarian wajah 1:N >> nantinya fronted popup camera untuk melihat multi user lewat dibandingkan semua data user
+ {user, face_confidence, presence (incoming / outcaming), createdat}
+ - /attendance-all 
+    get all
+ - /attendance/id
+    get by id

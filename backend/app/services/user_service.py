@@ -112,6 +112,41 @@ class UserService:
             return None
 
     @staticmethod
+    def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single user by email with face registration count
+        
+        Args:
+            email: User email
+            
+        Returns:
+            User dictionary or None if not found
+        """
+        with get_db_connection() as conn:
+            cursor = get_db_cursor(conn)
+            cursor.execute("""
+                SELECT 
+                    u.id, 
+                    u.name, 
+                    u.email, 
+                    u.created_at,
+                    COUNT(fe.id) as face_count
+                FROM users u
+                LEFT JOIN face_embeddings fe ON u.id = fe.user_id
+                WHERE u.email = %s
+                GROUP BY u.id, u.name, u.email, u.created_at
+            """, (email,))
+            row = cursor.fetchone()
+            
+            if row:
+                user_dict = dict(row)
+                user_dict['face_registered'] = user_dict['face_count'] > 0
+                user_dict['created_at'] = serialize_datetime(user_dict.get('created_at'))
+                return user_dict
+            
+            return None
+
+    @staticmethod
     def create_user(name: str, email: str, password: str) -> Tuple[Optional[Dict], Optional[str]]:
         """
         Create a new user
