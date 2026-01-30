@@ -64,19 +64,12 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 
 ```bash
 # Buat virtual environment
+cd /home/sultan/face-recognition/backend
 python3 -m venv venv
-
 # Aktifkan virtual environment
 source venv/bin/activate  # Linux/Mac
 # venv\Scripts\activate   # Windows
-
-# Install dependencies
-cd backend
 pip install -r requirements.txt
-
-# Jalankan aplikasi
-cd app
-python main.py
 ```
 
 Backend akan berjalan di: `http://localhost:5000`
