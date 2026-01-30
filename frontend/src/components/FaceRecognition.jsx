@@ -61,13 +61,13 @@ function FaceRecognition() {
       const response = await faceApi.identifyFace(imagePreview);
 
       if (response.success) {
-        setResults(response.data);
+        setResults(response);
         
         // Draw bounding boxes after image loads
         if (imageRef.current && imageRef.current.complete) {
-          drawBoundingBoxes(response.data);
+          drawBoundingBoxes(response);
         } else if (imageRef.current) {
-          imageRef.current.onload = () => drawBoundingBoxes(response.data);
+          imageRef.current.onload = () => drawBoundingBoxes(response);
         }
       } else {
         setError(response.message || 'Recognition failed');
