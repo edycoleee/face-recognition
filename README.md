@@ -909,6 +909,7 @@ face-recognition/
 ├── docker/
 └── README.md
 ```
+## DOCKER Setup (PostgreSQL + pgAdmin)
 
 ```bash
 # Start PostgreSQL + pgAdmin
@@ -1168,9 +1169,31 @@ sh generate-self-signed.sh
 docker compose up -d
 docker compose up -d --build
 
+# Build dan jalankan service reverse proxy (nginx)
+docker compose build nginx
+docker compose up -d nginx
+docker compose up -d --build nginx
+docker compose restart nginx
+
+# Build dan jalankan service frontend
+docker compose build frontend
+docker compose up -d frontend
+docker compose up -d --build frontend
+docker compose restart frontend
+
+# Build dan jalankan service backend
+docker compose build backend
+docker compose up -d backend
+docker compose up -d --build backend
+docker compose restart backend
 
 # Stop services
 docker compose down
+
+# Stop specific service
+docker compose stop nginx
+docker compose stop frontend
+docker compose stop backend
 
 
 docker logs --tail=50 reverse-proxy

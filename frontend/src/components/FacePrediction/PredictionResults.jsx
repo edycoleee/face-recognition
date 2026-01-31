@@ -32,14 +32,15 @@ function PredictionResults({
 
       {predictionResult && (
         <div className="result-card">
-          {predictionResult.identified ? (
+          {/* Handle both identification (1:N) and verification (1:1) results */}
+          {(predictionResult.identified || predictionResult.verified) ? (
             <MatchFound result={predictionResult} />
           ) : (
             <NoMatch result={predictionResult} />
           )}
 
           {predictionResult.top_matches && predictionResult.top_matches.length > 0 && (
-            <TopMatches matches={predictionResult.top_matches} identified={predictionResult.identified} />
+            <TopMatches matches={predictionResult.top_matches} identified={predictionResult.identified || predictionResult.verified} />
           )}
 
           <button onClick={onReset} className="btn-reset">
@@ -52,14 +53,16 @@ function PredictionResults({
 }
 
 function MatchFound({ result }) {
+  const isVerification = result.verified !== undefined
+  
   return (
     <>
       <div className="result-header success">
-        <h2>✅ Match Found!</h2>
+        <h2>✅ {isVerification ? 'Verification Success!' : 'Match Found!'}</h2>
       </div>
       <div className="result-body">
         <div className="result-item">
-          <span className="label">Identified As:</span>
+          <span className="label">{isVerification ? 'Verified As:' : 'Identified As:'}</span>
           <span className="value">{result.user_name}</span>
         </div>
         <div className="result-item">
@@ -70,10 +73,30 @@ function MatchFound({ result }) {
           <span className="label">Confidence:</span>
           <span className="value confidence">{result.confidence}%</span>
         </div>
-        <div className="result-item">
-          <span className="label">Similarity Score:</span>
-          <span className="value">{result.similarity_score}</span>
-        </div>
+        {result.similarity_score && (
+          <div className="result-item">
+            <span className="label">Similarity Score:</span>
+            <span className="value">{result.similarity_score}</span>
+          </div>
+        )}
+        {result.best_similarity && (
+          <div className="result-item">
+            <span className="label">Best Similarity:</span>
+            <span className="value">{result.best_similarity}</span>
+          </div>
+        )}
+        {result.avg_similarity && (
+          <div className="result-item">
+            <span className="label">Average Similarity:</span>
+            <span className="value">{result.avg_similarity}</span>
+          </div>
+        )}
+        {result.embeddings_checked && (
+          <div className="result-item">
+            <span className="label">Embeddings Checked:</span>
+            <span className="value">{result.embeddings_checked}</span>
+          </div>
+        )}
       </div>
     </>
   )

@@ -252,6 +252,21 @@ def verify_face(
         if verified:
             return True, f"Face verified as {user_info['name']}", result
         else:
+            # If verification failed, try to identify who this actually is
+            # This helps detect if wrong person is trying to verify
+            try:
+                _, _, identify_result = identify_face(base64_image, threshold)
+                if identify_result and identify_result.get('identified'):
+                    # Add actual identity to result
+                    result['actual_identity'] = {
+                        'user_id': identify_result['user_id'],
+                        'user_name': identify_result['user_name'],
+                        'confidence': identify_result['confidence']
+                    }
+                    return False, f"Face does not match {user_info['name']}. Detected as {identify_result['user_name']} instead.", result
+            except Exception as e:
+                logger.warning(f"Failed to identify actual person: {str(e)}")
+            
             return False, f"Face does not match {user_info['name']}", result
             
     except Exception as e:

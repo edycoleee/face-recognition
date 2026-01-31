@@ -6,24 +6,24 @@ import './Login.css';
 
 function Login() {
   const navigate = useNavigate();
-  
+
   // Mode state: 'face' or 'password'
   const [loginMode, setLoginMode] = useState('face');
-  
+
   // Common
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   // Password mode
   const [password, setPassword] = useState('');
-  
+
   // Face mode
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [threshold, setThreshold] = useState(0.6);
-  
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -38,17 +38,17 @@ function Login() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
           facingMode: 'user'
         }
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        
+
         // Wait for video to be ready
         videoRef.current.onloadedmetadata = () => {
           videoRef.current.play().catch(err => {
@@ -56,7 +56,7 @@ function Login() {
             setError('Failed to play video stream');
           });
         };
-        
+
         setCameraActive(true);
         setError('');
       }
@@ -82,24 +82,24 @@ function Login() {
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
-    
+
     // Convert canvas to base64 and verify immediately
     const base64Image = canvas.toDataURL('image/jpeg', 0.95);
-    
+
     // Create blob for preview
     canvas.toBlob(async (blob) => {
       setCapturedImage(blob);
       setError('');
-      
+
       // Stop camera after capture
       stopCamera();
-      
+
       // Auto verify with base64 image
       await verifyFaceLogin(base64Image);
     }, 'image/jpeg', 0.95);
@@ -119,18 +119,28 @@ function Login() {
       console.log('Starting face verification for email:', email);
       console.log('Threshold:', threshold);
       console.log('Base64 image length:', base64Image.length);
-      
+
       // Call API with base64 image
       const response = await loginWithFace(email, base64Image, threshold);
-      
+
       console.log('Login response:', response);
-      
+
       // Check if response is valid
       if (!response) {
         throw new Error('No response from server');
       }
 
       if (!response.success) {
+        // If we got data with actual identity info (wrong person detected)
+        if (response.data && response.data.actual_identity) {
+          const actual = response.data.actual_identity;
+          throw new Error(
+            `❌ Wrong person detected!\n` +
+            `Expected: ${email}\n` +
+            `Detected: ${actual.user_name} (Confidence: ${actual.detected_confidence.toFixed(2)})`
+          );
+        }
+        
         // If we got data with confidence info, show it
         if (response.data && typeof response.data.confidence !== 'undefined') {
           throw new Error(`${response.message || 'Verification failed'} (Confidence: ${response.data.confidence.toFixed(2)})`);
@@ -142,34 +152,34 @@ function Login() {
       if (!response.data) {
         throw new Error('Invalid response data from server');
       }
-      
+
       // Save auth data
       saveAuthData(response);
-      
+
       // Show success with confidence if available
-      const confidenceText = response.data.confidence 
+      const confidenceText = response.data.confidence
         ? ` Confidence: ${response.data.confidence.toFixed(2)}`
         : '';
-      
+
       setSuccess(`✅ Login successful!${confidenceText}`);
-      
+
       // Redirect to dashboard after short delay
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
-      
+
     } catch (err) {
       console.error('Face verification error:', err);
-      
+
       // Extract error message properly
       let errorMessage = 'Face verification failed. Please try again.';
-      
+
       if (err.message) {
         errorMessage = err.message;
       } else if (typeof err === 'string') {
         errorMessage = err;
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -178,7 +188,7 @@ function Login() {
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       setError('Please enter email and password');
       return;
@@ -190,17 +200,17 @@ function Login() {
 
     try {
       const response = await loginWithPassword(email, password);
-      
+
       // Save auth data
       saveAuthData(response);
-      
+
       setSuccess('Login successful!');
-      
+
       // Redirect to dashboard after short delay
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
-      
+
     } catch (err) {
       setError(err.message || 'Password login failed');
     } finally {
@@ -214,7 +224,7 @@ function Login() {
     setSuccess('');
     setPassword('');
     setCapturedImage(null);
-    
+
     if (mode === 'password') {
       stopCamera();
     }
@@ -248,9 +258,9 @@ function Login() {
       if (result.success) {
         // Save auth data
         saveAuthData(result);
-        
+
         setSuccess('✅ Login successful via popup!');
-        
+
         // Redirect to dashboard
         setTimeout(() => {
           navigate('/dashboard');
@@ -268,20 +278,20 @@ function Login() {
     <div className="login-container">
       <div className="login-wrapper">
         <h1 className="login-main-title">🔐 Face Recognition Login</h1>
-        
+
         {/* Mode Selector */}
         <div className="mode-selector">
-          <button
-            className={`mode-btn ${loginMode === 'face' ? 'active' : ''}`}
-            onClick={() => switchMode('face')}
-          >
-            📷 Face Login
-          </button>
           <button
             className={`mode-btn ${loginMode === 'password' ? 'active' : ''}`}
             onClick={() => switchMode('password')}
           >
             🔑 Password Login
+          </button>
+          <button
+            className={`mode-btn ${loginMode === 'face' ? 'active' : ''}`}
+            onClick={() => switchMode('face')}
+          >
+            📷 Face Login
           </button>
           <button
             className="mode-btn mode-btn-popup"
@@ -390,7 +400,7 @@ function Login() {
           {loginMode === 'face' && (
             <div className="camera-preview-card">
               <h3 className="preview-title">Camera Preview</h3>
-              
+
               {!capturedImage ? (
                 <div className="camera-section">
                   <div className="camera-container">
@@ -402,7 +412,7 @@ function Login() {
                         </button>
                       </div>
                     )}
-                    
+
                     <video
                       ref={videoRef}
                       autoPlay
@@ -411,7 +421,7 @@ function Login() {
                       className="video-preview"
                       style={{ display: cameraActive ? 'block' : 'none' }}
                     />
-                    
+
                     <canvas ref={canvasRef} style={{ display: 'none' }} />
                   </div>
 
@@ -437,14 +447,14 @@ function Login() {
                       alt="Captured face"
                     />
                   </div>
-                  
+
                   {loading && (
                     <div className="verification-status verifying">
                       <div className="spinner"></div>
                       <p>⏳ Verifying your face...</p>
                     </div>
                   )}
-                  
+
                   {!loading && error && (
                     <div className="verification-status failed">
                       <p>❌ Verification Failed</p>
@@ -453,7 +463,7 @@ function Login() {
                       </button>
                     </div>
                   )}
-                  
+
                   {!loading && success && (
                     <div className="verification-status success">
                       <p>✅ Verification Successful!</p>

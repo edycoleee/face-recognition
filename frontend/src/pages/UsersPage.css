@@ -146,7 +146,8 @@
 .users-page .btn-register,
 .users-page .btn-update,
 .users-page .btn-reregister,
-.users-page .btn-predict {
+.users-page .btn-predict,
+.users-page .btn-verify {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 5px;
@@ -269,6 +270,15 @@
 
 .users-page .btn-predict:hover {
   background: #e0a800;
+}
+
+.users-page .btn-verify {
+  background: #4CAF50;
+  color: white;
+}
+
+.users-page .btn-verify:hover {
+  background: #45a049;
 }
 
 .users-page .btn-edit {

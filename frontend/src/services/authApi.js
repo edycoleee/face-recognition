@@ -3,7 +3,7 @@
  * Handles all authentication-related API calls
  */
 
-const API_BASE_URL = 'http://192.168.30.21:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /**
  * Login with face verification (1:1)
@@ -154,6 +154,10 @@ export const getUserByEmail = async (email) => {
  * @param {Object} authData - Authentication data from login response
  */
 export const saveAuthData = (authData) => {
+  console.log('Saving auth data:', authData.data);
+  console.log('Expires at from backend:', authData.data.expires_at);
+  console.log('Current time:', new Date().toISOString());
+  
   localStorage.setItem('authToken', authData.data.token);
   localStorage.setItem('userEmail', authData.data.email);
   localStorage.setItem('userName', authData.data.name);
@@ -163,6 +167,8 @@ export const saveAuthData = (authData) => {
   if (authData.data.confidence !== undefined) {
     localStorage.setItem('loginConfidence', authData.data.confidence.toString());
   }
+  
+  console.log('Token expiry saved to localStorage:', localStorage.getItem('tokenExpiry'));
 };
 
 /**
@@ -202,10 +208,32 @@ export const getUserData = () => {
 export const isTokenExpired = () => {
   const expiryStr = localStorage.getItem('tokenExpiry');
   
-  if (!expiryStr) return true;
+  if (!expiryStr) {
+    console.log('No token expiry found in localStorage');
+    return true;
+  }
 
-  const expiry = new Date(expiryStr);
-  return new Date() > expiry;
+  try {
+    const expiry = new Date(expiryStr);
+    const now = new Date();
+    
+    // Debug log
+    console.log('Token expiry check:', {
+      expiryStr,
+      expiryDate: expiry.toISOString(),
+      expiryTimestamp: expiry.getTime(),
+      now: now.toISOString(),
+      nowTimestamp: now.getTime(),
+      difference: expiry.getTime() - now.getTime(),
+      differenceMinutes: (expiry.getTime() - now.getTime()) / 1000 / 60,
+      isExpired: now > expiry
+    });
+    
+    return now > expiry;
+  } catch (error) {
+    console.error('Error parsing token expiry:', error);
+    return true;
+  }
 };
 
 /**
@@ -215,7 +243,18 @@ export const isTokenExpired = () => {
  */
 export const isAuthenticated = () => {
   const token = getAuthToken();
-  return token !== null && !isTokenExpired();
+  const hasToken = token !== null;
+  const expired = isTokenExpired();
+  
+  // Debug log
+  console.log('Authentication check:', {
+    hasToken,
+    token: token ? token.substring(0, 20) + '...' : null,
+    expired,
+    isAuthenticated: hasToken && !expired
+  });
+  
+  return hasToken && !expired;
 };
 
 /**

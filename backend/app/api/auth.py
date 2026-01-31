@@ -154,6 +154,29 @@ class FaceLogin(Resource):
             match, auth_result, confidence = AuthService.face_login(email, face_image, threshold)
             
             if not match:
+                # Check if we detected wrong person
+                if auth_result and isinstance(auth_result, dict) and 'user_id' in auth_result:
+                    # This is actual_identity of wrong person
+                    logger.warning(
+                        f"Face login failed for {email}. "
+                        f"Detected as {auth_result['user_name']} (ID: {auth_result['user_id']}) instead. "
+                        f"Confidence: {auth_result['confidence']:.2f}"
+                    )
+                    return {
+                        "success": False,
+                        "message": f"Face verification failed. This appears to be {auth_result['user_name']} instead of {email}.",
+                        "data": {
+                            "match": False,
+                            "confidence": confidence,
+                            "actual_identity": {
+                                "user_id": auth_result['user_id'],
+                                "user_name": auth_result['user_name'],
+                                "detected_confidence": auth_result['confidence']
+                            }
+                        }
+                    }, HTTPStatus.UNAUTHORIZED
+                
+                # No identity detected
                 logger.warning(f"Face login failed for {email}, confidence={confidence:.2f}")
                 return {
                     "success": False,
@@ -162,7 +185,7 @@ class FaceLogin(Resource):
                         "match": False,
                         "confidence": confidence
                     }
-                }, HTTPStatus.BAD_REQUEST
+                }, HTTPStatus.UNAUTHORIZED
             
             logger.info(f"Face login successful for {email}, confidence={confidence:.2f}")
             

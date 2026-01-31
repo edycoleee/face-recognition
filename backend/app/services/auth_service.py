@@ -4,7 +4,7 @@ Handles user authentication (face & password), token management, and verificatio
 """
 import uuid
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Tuple
 
 from utils.db import get_db_connection, get_db_cursor
@@ -59,9 +59,9 @@ class AuthService:
         Calculate token expiry time
         
         Returns:
-            Datetime object for token expiration
+            Datetime object for token expiration (UTC timezone-aware)
         """
-        return datetime.now() + timedelta(hours=Auth.TOKEN_EXPIRY_HOURS)
+        return datetime.now(timezone.utc) + timedelta(hours=Auth.TOKEN_EXPIRY_HOURS)
     
     @staticmethod
     def create_auth_token(user_id: int, confidence: float) -> Dict:
@@ -358,6 +358,47 @@ class AuthService:
         
         if not match:
             logger.warning(f"Face login failed: No match for user_id={user_id}, confidence={confidence:.2f}")
+            
+            # Try to identify who this actually is (security feature)
+            try:
+                from services.identification_service import identify_face, extract_face_embedding
+                
+                # Extract embedding first to reuse
+                query_embedding, error = extract_face_embedding(
+                    # Convert numpy array to base64 for identify_face
+                    "data:image/jpeg;base64," + ""  # We'll use direct face_image instead
+                )
+                
+                # Actually, let's use find_best_match which accepts numpy array directly
+                from services.recognition_service import find_best_match, get_face_analyzer
+                
+                app = get_face_analyzer()
+                faces = app.get(face_image)
+                
+                if len(faces) == 1:
+                    from utils.embedding_utils import normalize_embedding
+                    query_embedding = normalize_embedding(faces[0].embedding)
+                    
+                    success, message, result = find_best_match(query_embedding, threshold)
+                    
+                    if success and result.get('identified'):
+                        # Found who this actually is
+                        actual_identity = {
+                            'user_id': result['user_id'],
+                            'user_name': result['user_name'],
+                            'confidence': result['confidence']
+                        }
+                        
+                        logger.warning(
+                            f"Wrong person detected! Expected user_id={user_id}, "
+                            f"but detected user_id={result['user_id']} ({result['user_name']}) "
+                            f"with confidence={result['confidence']:.2f}"
+                        )
+                        
+                        return False, actual_identity, confidence
+            except Exception as e:
+                logger.warning(f"Failed to identify actual person: {str(e)}")
+            
             return False, None, confidence
         
         # Generate token

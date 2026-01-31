@@ -123,6 +123,15 @@ function FaceLoginPopup() {
           window.close();
         }, 1500);
       } else {
+        // Check if wrong person was detected
+        if (response.data && response.data.actual_identity) {
+          const actual = response.data.actual_identity;
+          throw new Error(
+            `Wrong person detected!\n` +
+            `Expected: ${email}\n` +
+            `Detected: ${actual.user_name} (${actual.detected_confidence.toFixed(2)})`
+          );
+        }
         throw new Error(response.message || 'Verification failed');
       }
       

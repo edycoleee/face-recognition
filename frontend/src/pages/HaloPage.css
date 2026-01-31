@@ -63,7 +63,11 @@
 
 .halo-page .card h3 {
   margin: 0 0 0.5rem 0;
- halo-page .form-group {
+  color: #555;
+  font-size: 1.2rem;
+}
+
+.halo-page .form-group {
   margin-bottom: 1rem;
 }
 
@@ -132,7 +136,7 @@
   font-size: 0.9rem;
   margin: 0;
   text-align: left;
-  font-family: 'Courier New', Courier, monospace
+  font-family: 'Courier New', Courier, monospace;
   color: #2e7d32;
 }
 

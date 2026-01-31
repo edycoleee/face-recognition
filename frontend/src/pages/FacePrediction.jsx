@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useCamera } from '../hooks/useCamera'
 import { useFacePrediction } from '../hooks/useFacePrediction'
 import { useFileUpload } from '../hooks/useFileUpload'
@@ -12,6 +12,8 @@ import './FacePrediction.css'
 function FacePrediction() {
   const navigate = useNavigate()
   const { userId } = useParams()
+  const [searchParams] = useSearchParams()
+  const predictionMode = searchParams.get('mode') || '1-n' // '1-n' or '1-1'
   
   // Custom Hooks
   const camera = useCamera()
@@ -61,34 +63,25 @@ function FacePrediction() {
     }
     
     setCapturedImage(imageData)
-    setCurrentStatus('🔍 Identifying face...')
-
-    const result = await prediction.predictFace(imageData, 0.6)
     
-    if (result.success) {
-      if (result.data.identified) {
-        setCurrentStatus(`✅ Identified: ${result.data.user_name}`)
+    let result
+    if (predictionMode === '1-1') {
+      setCurrentStatus('🔍 Verifying face...')
+      result = await prediction.verifyFace(imageData, userId, 0.6)
+      
+      if (result.success) {
+        if (result.data.verified) {
+          setCurrentStatus(`✅ Verified: ${result.data.user_name}`)
+        } else {
+          setCurrentStatus('❌ Verification failed')
+        }
       } else {
-        setCurrentStatus('❌ No match found')
+        setError(result.error)
+        setCurrentStatus('❌ Verification error')
       }
     } else {
-      setError(result.error)
-      setCurrentStatus('❌ Prediction failed')
-    }
-  }, [camera, prediction])
-
-  // Handle file upload and predict
-  const handleFileUploadAndPredict = useCallback(async (file) => {
-    setCurrentStatus('📤 Processing file...')
-    prediction.resetPrediction()
-    setError(null)
-    setCapturedImage(null)
-    
-    try {
-      const base64 = await fileUpload.handleFileSelect(file)
       setCurrentStatus('🔍 Identifying face...')
-      
-      const result = await prediction.predictFace(base64, 0.6)
+      result = await prediction.predictFace(imageData, 0.6)
       
       if (result.success) {
         if (result.data.identified) {
@@ -100,11 +93,54 @@ function FacePrediction() {
         setError(result.error)
         setCurrentStatus('❌ Prediction failed')
       }
+    }
+  }, [camera, prediction, predictionMode, userId])
+
+  // Handle file upload and predict
+  const handleFileUploadAndPredict = useCallback(async (file) => {
+    setCurrentStatus('📤 Processing file...')
+    prediction.resetPrediction()
+    setError(null)
+    setCapturedImage(null)
+    
+    try {
+      const base64 = await fileUpload.handleFileSelect(file)
+      
+      let result
+      if (predictionMode === '1-1') {
+        setCurrentStatus('🔍 Verifying face...')
+        result = await prediction.verifyFace(base64, userId, 0.6)
+        
+        if (result.success) {
+          if (result.data.verified) {
+            setCurrentStatus(`✅ Verified: ${result.data.user_name}`)
+          } else {
+            setCurrentStatus('❌ Verification failed')
+          }
+        } else {
+          setError(result.error)
+          setCurrentStatus('❌ Verification error')
+        }
+      } else {
+        setCurrentStatus('🔍 Identifying face...')
+        result = await prediction.predictFace(base64, 0.6)
+        
+        if (result.success) {
+          if (result.data.identified) {
+            setCurrentStatus(`✅ Identified: ${result.data.user_name}`)
+          } else {
+            setCurrentStatus('❌ No match found')
+          }
+        } else {
+          setError(result.error)
+          setCurrentStatus('❌ Prediction failed')
+        }
+      }
     } catch (err) {
       setError('Failed to process file: ' + err.message)
       setCurrentStatus('❌ File processing failed')
     }
-  }, [fileUpload, prediction])
+  }, [fileUpload, prediction, predictionMode, userId])
 
   // Predict from uploaded file
   const handlePredictFromFile = useCallback(async () => {
@@ -113,23 +149,40 @@ function FacePrediction() {
       return
     }
     
-    setCurrentStatus('🔍 Identifying face...')
     prediction.resetPrediction()
     setError(null)
     
-    const result = await prediction.predictFace(fileUpload.base64Image, 0.6)
-    
-    if (result.success) {
-      if (result.data.identified) {
-        setCurrentStatus(`✅ Identified: ${result.data.user_name}`)
+    let result
+    if (predictionMode === '1-1') {
+      setCurrentStatus('🔍 Verifying face...')
+      result = await prediction.verifyFace(fileUpload.base64Image, userId, 0.6)
+      
+      if (result.success) {
+        if (result.data.verified) {
+          setCurrentStatus(`✅ Verified: ${result.data.user_name}`)
+        } else {
+          setCurrentStatus('❌ Verification failed')
+        }
       } else {
-        setCurrentStatus('❌ No match found')
+        setError(result.error)
+        setCurrentStatus('❌ Verification error')
       }
     } else {
-      setError(result.error)
-      setCurrentStatus('❌ Prediction failed')
+      setCurrentStatus('🔍 Identifying face...')
+      result = await prediction.predictFace(fileUpload.base64Image, 0.6)
+      
+      if (result.success) {
+        if (result.data.identified) {
+          setCurrentStatus(`✅ Identified: ${result.data.user_name}`)
+        } else {
+          setCurrentStatus('❌ No match found')
+        }
+      } else {
+        setError(result.error)
+        setCurrentStatus('❌ Prediction failed')
+      }
     }
-  }, [fileUpload.base64Image, prediction])
+  }, [fileUpload.base64Image, prediction, predictionMode, userId])
 
   // Reset prediction
   const handleReset = useCallback(() => {
@@ -162,11 +215,18 @@ function FacePrediction() {
       </button>
 
       <div className="prediction-header">
-        <h1>Face Prediction</h1>
+        <h1>Face {predictionMode === '1-1' ? 'Verification (1:1)' : 'Identification (1:N)'}</h1>
         <p className="user-info">
-          Testing prediction for reference: <strong>{user.name}</strong>
+          {predictionMode === '1-1' 
+            ? `Verifying against specific user: ` 
+            : `Reference user: `}
+          <strong>{user.name}</strong>
         </p>
-        <p className="subtitle">Capture a face to identify who it matches in the database</p>
+        <p className="subtitle">
+          {predictionMode === '1-1'
+            ? `Verify if the captured face matches ${user.name} specifically`
+            : 'Capture a face to identify who it matches in the database'}
+        </p>
       </div>
 
       <div className="prediction-content">

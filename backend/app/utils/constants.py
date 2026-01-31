@@ -30,7 +30,7 @@ class API:
 # Database Constants
 class Database:
     """Database related constants"""
-    DEFAULT_HOST = "192.168.30.21"
+    DEFAULT_HOST = "192.10.10.154"
     DEFAULT_PORT = 5432
     DEFAULT_DB_NAME = "face_db"
     DEFAULT_USER = "sultan"

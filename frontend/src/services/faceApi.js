@@ -31,5 +31,19 @@ export const faceApi = {
     })
     const data = await response.json()
     return data
+  },
+
+  async verifyFace(imageBase64, userId, threshold = 0.6) {
+    const response = await fetch(`${API_BASE_URL}/identify/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: imageBase64,
+        user_id: parseInt(userId),
+        threshold
+      })
+    })
+    const data = await response.json()
+    return data
   }
 }
