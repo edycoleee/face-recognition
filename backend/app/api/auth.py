@@ -4,6 +4,7 @@ Face Recognition + Password Authentication
 """
 from flask import request
 from flask_restx import Namespace, Resource, fields
+from datetime import datetime, timezone
 
 from services.auth_service import AuthService
 from utils.decorators import handle_exceptions, log_request
@@ -12,6 +13,27 @@ from utils.image_utils import decode_base64_image
 from utils.response import success_response, error_response
 from utils.logger import logger
 from utils.constants import Auth, HTTPStatus
+
+
+def format_utc_datetime(dt: datetime) -> str:
+    """
+    Format datetime as UTC ISO string with 'Z' suffix
+    
+    Args:
+        dt: Datetime object (should be timezone-aware UTC)
+    
+    Returns:
+        ISO format string with 'Z' suffix (e.g., '2026-01-31T13:34:08.446Z')
+    """
+    # If timezone-aware, convert to UTC
+    if dt.tzinfo is not None:
+        dt_utc = dt.astimezone(timezone.utc)
+        # Use isoformat and replace +00:00 with Z
+        iso_str = dt_utc.isoformat()
+        return iso_str.replace('+00:00', 'Z')
+    else:
+        # Assume already UTC if naive
+        return dt.isoformat() + 'Z'
 
 
 api = Namespace("auth", description="Face Recognition Authentication API")
@@ -198,7 +220,7 @@ class FaceLogin(Resource):
                     "name": auth_result["name"],
                     "email": auth_result["email"],
                     "token": auth_result["token"],
-                    "expires_at": auth_result["expires_at"].isoformat(),
+                    "expires_at": format_utc_datetime(auth_result["expires_at"]),
                     "confidence": confidence
                 }
             }, HTTPStatus.OK
@@ -282,7 +304,7 @@ class PasswordLogin(Resource):
                 "name": auth_result["name"],
                 "email": auth_result["email"],
                 "token": auth_result["token"],
-                "expires_at": auth_result["expires_at"].isoformat()
+                "expires_at": format_utc_datetime(auth_result["expires_at"])
             }
         )
 
@@ -328,7 +350,7 @@ class VerifyToken(Resource):
                 "name": user_info["name"],
                 "email": user_info["email"],
                 "confidence": user_info["confidence"],
-                "expires_at": user_info["expires_at"].isoformat()
+                "expires_at": format_utc_datetime(user_info["expires_at"])
             }
         )
 
@@ -400,8 +422,8 @@ class UserTokens(Resource):
                 "id": token["id"],
                 "token": token["token"],
                 "confidence": token["confidence"],
-                "created_at": token["created_at"].isoformat(),
-                "expires_at": token["expires_at"].isoformat(),
+                "created_at": format_utc_datetime(token["created_at"]),
+                "expires_at": format_utc_datetime(token["expires_at"]),
                 "is_active": token["is_active"]
             })
         

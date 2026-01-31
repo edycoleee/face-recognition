@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginWithFace, loginWithPassword, saveAuthData } from '../services/authApi';
-import { openFaceLoginPopup } from '../utils/popupAuth';
+import { openFaceLoginPopup, openFaceLogin1NPopup } from '../utils/popupAuth';
 import './Login.css';
 
 function Login() {
@@ -274,6 +274,36 @@ function Login() {
     }
   };
 
+  const handlePopupLogin1N = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Open 1:N identification popup (no email required)
+      const result = await openFaceLogin1NPopup({
+        threshold
+      });
+
+      if (result.success) {
+        // Save auth data
+        saveAuthData(result);
+
+        setSuccess(`✅ Face identified! Welcome ${result.data.name}!`);
+
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('1:N Popup login error:', err);
+      setError(err.message || '1:N identification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="login-wrapper">
@@ -299,7 +329,15 @@ function Login() {
             disabled={loading || !email}
             title="Open popup window for face login (OAuth2-style)"
           >
-            🪟 Popup Face Login
+            🪟 Popup Face Login (1:1)
+          </button>
+          <button
+            className="mode-btn mode-btn-popup mode-btn-1n"
+            onClick={handlePopupLogin1N}
+            disabled={loading}
+            title="1:N Face Identification - No email required!"
+          >
+            🔍 Popup Face Login (1:N)
           </button>
         </div>
 

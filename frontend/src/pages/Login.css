@@ -27,6 +27,7 @@
   gap: 10px;
   margin-bottom: 2rem;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .mode-btn {
@@ -58,6 +59,20 @@
   overflow: hidden;
 }
 
+.mode-btn-1n {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
 .mode-btn-popup::before {
   content: '';
   position: absolute;
@@ -76,6 +91,7 @@
 .mode-btn-popup:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  animation: none;
 }
 
 /* Content Grid - 2 Columns */

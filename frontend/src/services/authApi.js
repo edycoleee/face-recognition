@@ -155,20 +155,21 @@ export const getUserByEmail = async (email) => {
  */
 export const saveAuthData = (authData) => {
   console.log('Saving auth data:', authData.data);
-  console.log('Expires at from backend:', authData.data.expires_at);
-  console.log('Current time:', new Date().toISOString());
+  console.log('Expires at from backend (UTC):', authData.data.expires_at);
+  console.log('Current time (UTC):', new Date().toISOString());
   
   localStorage.setItem('authToken', authData.data.token);
   localStorage.setItem('userEmail', authData.data.email);
   localStorage.setItem('userName', authData.data.name);
   localStorage.setItem('userId', authData.data.user_id.toString());
+  // Store the UTC timestamp directly from backend
   localStorage.setItem('tokenExpiry', authData.data.expires_at);
   
   if (authData.data.confidence !== undefined) {
     localStorage.setItem('loginConfidence', authData.data.confidence.toString());
   }
   
-  console.log('Token expiry saved to localStorage:', localStorage.getItem('tokenExpiry'));
+  console.log('Token expiry saved (UTC):', localStorage.getItem('tokenExpiry'));
 };
 
 /**
@@ -214,22 +215,31 @@ export const isTokenExpired = () => {
   }
 
   try {
+    // Parse as UTC - backend sends ISO format with 'Z' suffix
+    // JavaScript Date constructor correctly handles ISO strings with 'Z' as UTC
     const expiry = new Date(expiryStr);
     const now = new Date();
+    
+    // Validate parsed date
+    if (isNaN(expiry.getTime())) {
+      console.error('Invalid date format:', expiryStr);
+      return true;
+    }
+    
+    const isExpired = now > expiry;
+    const diffMinutes = (expiry.getTime() - now.getTime()) / 1000 / 60;
     
     // Debug log
     console.log('Token expiry check:', {
       expiryStr,
-      expiryDate: expiry.toISOString(),
-      expiryTimestamp: expiry.getTime(),
-      now: now.toISOString(),
-      nowTimestamp: now.getTime(),
-      difference: expiry.getTime() - now.getTime(),
-      differenceMinutes: (expiry.getTime() - now.getTime()) / 1000 / 60,
-      isExpired: now > expiry
+      expiryUTC: expiry.toISOString(),
+      nowUTC: now.toISOString(),
+      differenceMinutes: diffMinutes.toFixed(2),
+      remainingMinutes: Math.max(0, diffMinutes).toFixed(2),
+      isExpired
     });
     
-    return now > expiry;
+    return isExpired;
   } catch (error) {
     console.error('Error parsing token expiry:', error);
     return true;

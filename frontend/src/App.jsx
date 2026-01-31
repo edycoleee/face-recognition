@@ -3,6 +3,7 @@ import './App.css'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import FaceLoginPopup from './pages/FaceLoginPopup'
+import LoginPopup1N from './pages/LoginPopup1N'
 import FaceRecognitionPopup from './pages/FaceRecognitionPopup'
 import FaceAttendancePopup from './pages/FaceAttendancePopup'
 import FaceAttendanceMultiPopup from './pages/FaceAttendanceMultiPopup'
@@ -26,6 +27,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/login-popup" element={<FaceLoginPopup />} />
+        <Route path="/login-popup-1n" element={<LoginPopup1N />} />
         <Route path="/recognition-popup" element={<FaceRecognitionPopup />} />
         <Route path="/attendance-popup" element={<FaceAttendancePopup />} />
         <Route path="/attendance-multi-popup" element={<FaceAttendanceMultiPopup />} />
