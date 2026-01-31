@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithFace, loginWithPassword, saveAuthData } from '../services/authApi';
+import { saveAuthData } from '../services/authApi';
 import { openFaceLoginPopup, openFaceLogin1NPopup } from '../utils/popupAuth';
+import { useCamera } from '../hooks/useCamera';
+import { useFaceLogin } from '../hooks/useFaceLogin';
+import { usePasswordLogin } from '../hooks/usePasswordLogin';
 import './Login.css';
 
 function Login() {
@@ -12,297 +15,157 @@ function Login() {
 
   // Common
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  // Password mode
   const [password, setPassword] = useState('');
-
-  // Face mode
-  const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [threshold, setThreshold] = useState(0.6);
 
-  const videoRef = useRef(null);
+  // Custom hooks
+  const camera = useCamera();
+  const faceLogin = useFaceLogin();
+  const passwordLogin = usePasswordLogin();
+  
+  // Add canvasRef for blob creation
   const canvasRef = useRef(null);
-  const streamRef = useRef(null);
 
-  // Cleanup camera on unmount or mode change
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
-
-  const startCamera = async () => {
+  /**
+   * Capture image and verify face login
+   */
+  const handleCaptureAndVerify = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user'
-        }
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().catch(err => {
-            console.error('Error playing video:', err);
-            setError('Failed to play video stream');
-          });
-        };
-
-        setCameraActive(true);
-        setError('');
+      // Capture image from camera
+      const base64Image = camera.captureFrame();
+      
+      if (!base64Image) {
+        faceLogin.setError('Failed to capture image');
+        return;
       }
-    } catch (err) {
-      console.error('Camera error:', err);
-      setError('Failed to access camera: ' + err.message);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-  };
-
-  const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-
-    // Convert canvas to base64 and verify immediately
-    const base64Image = canvas.toDataURL('image/jpeg', 0.95);
-
-    // Create blob for preview
-    canvas.toBlob(async (blob) => {
+      
+      // Convert base64 to blob for preview
+      const blobResponse = await fetch(base64Image);
+      const blob = await blobResponse.blob();
       setCapturedImage(blob);
-      setError('');
 
       // Stop camera after capture
-      stopCamera();
+      camera.stopCamera();
 
-      // Auto verify with base64 image
-      await verifyFaceLogin(base64Image);
-    }, 'image/jpeg', 0.95);
-  };
-
-  const verifyFaceLogin = async (base64Image) => {
-    if (!email) {
-      setError('Please enter your email first');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      console.log('Starting face verification for email:', email);
-      console.log('Threshold:', threshold);
-      console.log('Base64 image length:', base64Image.length);
-
-      // Call API with base64 image
-      const response = await loginWithFace(email, base64Image, threshold);
-
-      console.log('Login response:', response);
-
-      // Check if response is valid
-      if (!response) {
-        throw new Error('No response from server');
-      }
-
-      if (!response.success) {
-        // If we got data with actual identity info (wrong person detected)
-        if (response.data && response.data.actual_identity) {
-          const actual = response.data.actual_identity;
-          throw new Error(
-            `❌ Wrong person detected!\n` +
-            `Expected: ${email}\n` +
-            `Detected: ${actual.user_name} (Confidence: ${actual.detected_confidence.toFixed(2)})`
-          );
-        }
-        
-        // If we got data with confidence info, show it
-        if (response.data && typeof response.data.confidence !== 'undefined') {
-          throw new Error(`${response.message || 'Verification failed'} (Confidence: ${response.data.confidence.toFixed(2)})`);
-        }
-        throw new Error(response.message || 'Verification failed');
-      }
-
-      // Check if data exists
-      if (!response.data) {
-        throw new Error('Invalid response data from server');
-      }
-
+      // Verify face login
+      const response = await faceLogin.performFaceLogin(email, base64Image, threshold);
+      
       // Save auth data
       saveAuthData(response);
 
-      // Show success with confidence if available
-      const confidenceText = response.data.confidence
-        ? ` Confidence: ${response.data.confidence.toFixed(2)}`
-        : '';
-
-      setSuccess(`✅ Login successful!${confidenceText}`);
-
-      // Redirect to dashboard after short delay
+      // Redirect to dashboard
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
 
     } catch (err) {
-      console.error('Face verification error:', err);
-
-      // Extract error message properly
-      let errorMessage = 'Face verification failed. Please try again.';
-
-      if (err.message) {
-        errorMessage = err.message;
-      } else if (typeof err === 'string') {
-        errorMessage = err;
-      }
-
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+      // Error already set by hook
+      console.error('Capture and verify error:', err);
     }
   };
 
+  /**
+   * Handle password login
+   */
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      setError('Please enter email and password');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
     try {
-      const response = await loginWithPassword(email, password);
-
+      const response = await passwordLogin.performPasswordLogin(email, password);
+      
       // Save auth data
       saveAuthData(response);
 
-      setSuccess('Login successful!');
-
-      // Redirect to dashboard after short delay
+      // Redirect to dashboard
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
 
     } catch (err) {
-      setError(err.message || 'Password login failed');
-    } finally {
-      setLoading(false);
+      // Error already set by hook
+      console.error('Password login error:', err);
     }
   };
 
+  /**
+   * Switch login mode
+   */
   const switchMode = (mode) => {
     setLoginMode(mode);
-    setError('');
-    setSuccess('');
     setPassword('');
     setCapturedImage(null);
+    
+    // Reset all messages
+    faceLogin.resetMessages();
+    passwordLogin.resetMessages();
 
+    // Stop camera if switching to password mode
     if (mode === 'password') {
-      stopCamera();
+      camera.stopCamera();
     }
   };
 
+  /**
+   * Reset capture and restart camera
+   */
   const resetCapture = () => {
     setCapturedImage(null);
-    setError('');
-    setSuccess('');
-    // Restart camera for recapture
-    startCamera();
+    faceLogin.resetMessages();
+    camera.startCamera();
   };
 
+  /**
+   * Handle popup face login (1:1)
+   */
   const handlePopupLogin = async () => {
     if (!email) {
-      setError('Please enter your email first');
+      faceLogin.setError('Please enter your email first');
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setSuccess('');
+    faceLogin.resetMessages();
 
     try {
-      // Open popup window (OAuth2-style)
-      const result = await openFaceLoginPopup({
-        email,
-        threshold
-      });
+      const result = await openFaceLoginPopup({ email, threshold });
 
       if (result.success) {
-        // Save auth data
         saveAuthData(result);
+        faceLogin.setSuccess('✅ Login successful via popup!');
 
-        setSuccess('✅ Login successful via popup!');
-
-        // Redirect to dashboard
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        setTimeout(() => navigate('/dashboard'), 1000);
       }
     } catch (err) {
       console.error('Popup login error:', err);
-      setError(err.message || 'Popup login failed');
-    } finally {
-      setLoading(false);
+      faceLogin.setError(err.message || 'Popup login failed');
     }
   };
 
+  /**
+   * Handle 1:N face identification popup
+   */
   const handlePopupLogin1N = async () => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
+    faceLogin.resetMessages();
 
     try {
-      // Open 1:N identification popup (no email required)
-      const result = await openFaceLogin1NPopup({
-        threshold
-      });
+      const result = await openFaceLogin1NPopup({ threshold });
 
       if (result.success) {
-        // Save auth data
         saveAuthData(result);
+        faceLogin.setSuccess(`✅ Face identified! Welcome ${result.data.name}!`);
 
-        setSuccess(`✅ Face identified! Welcome ${result.data.name}!`);
-
-        // Redirect to dashboard
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        setTimeout(() => navigate('/dashboard'), 1000);
       }
     } catch (err) {
       console.error('1:N Popup login error:', err);
-      setError(err.message || '1:N identification failed');
-    } finally {
-      setLoading(false);
+      faceLogin.setError(err.message || '1:N identification failed');
     }
   };
+
+  // Determine combined loading and error states
+  const isLoading = faceLogin.loading || passwordLogin.loading;
+  const error = faceLogin.error || passwordLogin.error;
+  const success = faceLogin.success || passwordLogin.success;
 
   return (
     <div className="login-container">
@@ -326,7 +189,7 @@ function Login() {
           <button
             className="mode-btn mode-btn-popup"
             onClick={handlePopupLogin}
-            disabled={loading || !email}
+            disabled={isLoading || !email}
             title="Open popup window for face login (OAuth2-style)"
           >
             🪟 Popup Face Login (1:1)
@@ -334,7 +197,7 @@ function Login() {
           <button
             className="mode-btn mode-btn-popup mode-btn-1n"
             onClick={handlePopupLogin1N}
-            disabled={loading}
+            disabled={isLoading}
             title="1:N Face Identification - No email required!"
           >
             🔍 Popup Face Login (1:N)
@@ -356,7 +219,7 @@ function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                disabled={loading}
+                disabled={isLoading}
               />
             </div>
 
@@ -373,7 +236,7 @@ function Login() {
                       step="0.05"
                       value={threshold}
                       onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                      disabled={loading}
+                      disabled={isLoading}
                     />
                     <span className="threshold-value">{threshold.toFixed(2)}</span>
                   </div>
@@ -405,16 +268,16 @@ function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
-                      disabled={loading}
+                      disabled={isLoading}
                     />
                   </div>
 
                   <button
                     type="submit"
                     className="btn btn-login"
-                    disabled={loading || !email || !password}
+                    disabled={isLoading || !email || !password}
                   >
-                    {loading ? '⏳ Logging in...' : '🚀 Login'}
+                    {isLoading ? '⏳ Logging in...' : '🚀 Login'}
                   </button>
                 </form>
               </div>
@@ -428,7 +291,7 @@ function Login() {
             <button
               onClick={() => navigate('/')}
               className="btn btn-text"
-              disabled={loading}
+              disabled={isLoading}
             >
               ← Back to Home
             </button>
@@ -442,35 +305,47 @@ function Login() {
               {!capturedImage ? (
                 <div className="camera-section">
                   <div className="camera-container">
-                    {!cameraActive && (
+                    {!camera.cameraActive && (
                       <div className="camera-placeholder">
                         <p>📷</p>
-                        <button onClick={startCamera} className="btn-start-camera" disabled={loading}>
+                        <button 
+                          onClick={camera.startCamera} 
+                          className="btn-start-camera" 
+                          disabled={isLoading}
+                        >
                           Start Camera
                         </button>
                       </div>
                     )}
 
                     <video
-                      ref={videoRef}
+                      ref={camera.videoRef}
                       autoPlay
                       playsInline
                       muted
                       className="video-preview"
-                      style={{ display: cameraActive ? 'block' : 'none' }}
+                      style={{ display: camera.cameraActive ? 'block' : 'none' }}
                     />
 
                     <canvas ref={canvasRef} style={{ display: 'none' }} />
                   </div>
 
-                  {cameraActive && (
+                  {camera.cameraActive && (
                     <>
                       <p className="video-instruction">Position your face in the frame</p>
                       <div className="camera-controls">
-                        <button onClick={captureImage} className="btn-predict" disabled={loading || !email}>
+                        <button 
+                          onClick={handleCaptureAndVerify} 
+                          className="btn-predict" 
+                          disabled={isLoading || !email}
+                        >
                           📸 Capture & Verify Face
                         </button>
-                        <button onClick={stopCamera} className="btn-stop-camera" disabled={loading}>
+                        <button 
+                          onClick={camera.stopCamera} 
+                          className="btn-stop-camera" 
+                          disabled={isLoading}
+                        >
                           Stop Camera
                         </button>
                       </div>
@@ -486,14 +361,14 @@ function Login() {
                     />
                   </div>
 
-                  {loading && (
+                  {isLoading && (
                     <div className="verification-status verifying">
                       <div className="spinner"></div>
                       <p>⏳ Verifying your face...</p>
                     </div>
                   )}
 
-                  {!loading && error && (
+                  {!isLoading && error && (
                     <div className="verification-status failed">
                       <p>❌ Verification Failed</p>
                       <button onClick={resetCapture} className="btn-reset">
@@ -502,7 +377,7 @@ function Login() {
                     </div>
                   )}
 
-                  {!loading && success && (
+                  {!isLoading && success && (
                     <div className="verification-status success">
                       <p>✅ Verification Successful!</p>
                       <p className="redirect-msg">Redirecting to dashboard...</p>

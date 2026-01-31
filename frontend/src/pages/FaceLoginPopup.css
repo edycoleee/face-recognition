@@ -183,11 +183,9 @@
 .status-section {
   width: 100%;
   max-width: 480px;
-  min-height: 80px;
+  min-height: 100px;
   text-align: center;
   margin-bottom: 1rem;
-}100px;
-  text-align: center;
 }
 
 .status-message {
@@ -224,7 +222,7 @@
 
 .status-text {
   flex: 1;
-  font-size: 0.95e p {
+  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -281,7 +279,15 @@
 }
 
 @keyframes checkmark {
-  0Threshold Control */
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Threshold Control */
 .threshold-control {
   width: 100%;
   padding: 1rem;
@@ -386,62 +392,29 @@
 .instructions-box {
   width: 100%;
   max-width: 480px;
-    flex-wrap: wrap;
-  }
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: white;
+  margin-bottom: 1rem;
+}
 
-  .popup-header h2 {
-    font-size: 1.25rem;
-    flex: 1 1 100%;
-    text-align: center;
-    margin-bottom: 0.5rem;
-  }
+.instructions-box h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
 
-  .email-display {
-    position: static;
-    transform: none;
-    width: 100%;
-    text-align: center;
-    margin: 0.5rem 0;
-    font-size: 0.8rem;
-  }
+.instructions-box ol {
+  margin-left: 1.25rem;
+}
 
-  .btn-close {
-    position: absolute;
-    top: 0.75rem;
-    right: 1rem;
-  }
+.instructions-box ol li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
 
-  .popup-content,
-  .popup-body {
-    padding: 1rem;
-  }
-
-  .camera-section {
-    margin-bottom: 1rem;
-  }
-
-  .action-buttons,
-  .popup-actions {
-    flex-direction: column;
-  }
-
-  .btn-action,
-  .btn-capture,
-  .btn-retry,
-  .btn-cancel {
-    width: 100%;
-  }
-
-  .instructions-box {
-    padding: 1rem;
-  }
-
-  .instructions-box h4 {
-    font-size: 0.95rem;
-  }
-
-  .instructions-box ol li {
-    font-size: 0.85rem
+/* Button Styles */
 .btn-cancel {
   padding: 1rem 2rem;
   background: rgba(255, 255, 255, 0.2);

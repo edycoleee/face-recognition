@@ -1,82 +1,34 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useCamera } from '../hooks/useCamera';
+import StatusMessage from '../components/StatusMessage';
 import './FaceLoginPopup.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function LoginPopup1N() {
-  const [cameraActive, setCameraActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [threshold, setThreshold] = useState(0.6);
 
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
+  // Use camera hook
+  const camera = useCamera();
 
   // Auto-start camera on mount
   useEffect(() => {
-    startCamera();
+    camera.startCamera();
+    
+    // Cleanup on unmount
     return () => {
-      stopCamera();
+      camera.stopCamera();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user'
-        }
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().catch(err => {
-            console.error('Error playing video:', err);
-            setError('Failed to play video stream');
-          });
-        };
-
-        setCameraActive(true);
-        setError('');
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-      setError('Failed to access camera: ' + err.message);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-  };
-
+  /**
+   * Capture and identify face (1:N)
+   */
   const captureAndIdentify = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-
-    const base64Image = canvas.toDataURL('image/jpeg', 0.95);
-
     setLoading(true);
     setError('');
     setSuccess('');
@@ -84,27 +36,34 @@ function LoginPopup1N() {
     try {
       console.log('Identifying face with threshold:', threshold);
 
+      // Capture image from camera
+      const base64Image = camera.captureFrame();
+
+      if (!base64Image) {
+        setError('Failed to capture image');
+        setLoading(false);
+        return;
+      }
+
       // Call 1:N identification endpoint
-      const response = await fetch(`${API_BASE_URL}/identify/`, {
+      const identifyResponse = await fetch(`${API_BASE_URL}/identify/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: base64Image,
           threshold: threshold
         }),
       });
 
-      const data = await response.json();
-      console.log('Identification response:', data);
+      const identifyData = await identifyResponse.json();
+      console.log('Identification response:', identifyData);
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Identification failed');
+      if (!identifyResponse.ok || !identifyData.success) {
+        throw new Error(identifyData.message || 'Identification failed');
       }
 
       // Check if face was identified
-      if (!data.data.identified) {
+      if (!identifyData.data.identified) {
         setError('❌ No matching face found in database. Please try again or register first.');
         setLoading(false);
         return;
@@ -112,20 +71,18 @@ function LoginPopup1N() {
 
       // Face identified! Get user info
       const userInfo = {
-        user_id: data.data.user_id,
-        name: data.data.user_name,
-        email: data.data.user_email
+        user_id: identifyData.data.user_id,
+        name: identifyData.data.user_name,
+        email: identifyData.data.user_email
       };
-      const confidence = data.data.similarity_score;
+      const confidence = identifyData.data.similarity_score;
 
       console.log('Face identified:', userInfo);
 
       // Call face login endpoint with the identified email
       const loginResponse = await fetch(`${API_BASE_URL}/auth/login-face`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: userInfo.email,
           image: base64Image,
@@ -143,21 +100,16 @@ function LoginPopup1N() {
       setSuccess(`✅ Welcome ${userInfo.name}! (Confidence: ${confidence.toFixed(2)})`);
 
       // Stop camera
-      stopCamera();
+      camera.stopCamera();
 
       // Send success message to parent window
       setTimeout(() => {
-        if (window.opener) {
-          window.opener.postMessage(
-            {
-              type: 'FACE_LOGIN_1N_RESULT',
-              success: true,
-              data: loginData.data,
-              message: `Face identified: ${userInfo.name}`
-            },
-            window.location.origin
-          );
-        }
+        sendMessageToParent({
+          type: 'FACE_LOGIN_1N_RESULT',
+          success: true,
+          data: loginData.data,
+          message: `Face identified: ${userInfo.name}`
+        });
         window.close();
       }, 1500);
 
@@ -169,20 +121,25 @@ function LoginPopup1N() {
     }
   };
 
-  const handleCancel = () => {
-    stopCamera();
-    
+  /**
+   * Send message to parent window
+   */
+  const sendMessageToParent = (message) => {
     if (window.opener) {
-      window.opener.postMessage(
-        {
-          type: 'FACE_LOGIN_1N_RESULT',
-          success: false,
-          message: 'Login cancelled by user'
-        },
-        window.location.origin
-      );
+      window.opener.postMessage(message, window.location.origin);
     }
-    
+  };
+
+  /**
+   * Handle cancel
+   */
+  const handleCancel = () => {
+    camera.stopCamera();
+    sendMessageToParent({
+      type: 'FACE_LOGIN_1N_RESULT',
+      success: false,
+      message: 'Login cancelled by user'
+    });
     window.close();
   };
 
@@ -202,7 +159,7 @@ function LoginPopup1N() {
         {/* Camera Preview */}
         <div className="camera-section">
           <div className="camera-preview">
-            {!cameraActive && !loading && (
+            {!camera.cameraActive && !loading && (
               <div className="camera-placeholder">
                 <div className="spinner"></div>
                 <p>📷 Initializing camera...</p>
@@ -210,18 +167,16 @@ function LoginPopup1N() {
             )}
 
             <video
-              ref={videoRef}
+              ref={camera.videoRef}
               autoPlay
               playsInline
               muted
               className="video-stream"
-              style={{ display: cameraActive ? 'block' : 'none' }}
+              style={{ display: camera.cameraActive ? 'block' : 'none' }}
             />
 
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-            
             {/* Oval Overlay */}
-            {cameraActive && (
+            {camera.cameraActive && (
               <div className="face-oval-overlay">
                 <svg viewBox="0 0 100 100" className="oval-guide">
                   <ellipse cx="50" cy="50" rx="30" ry="40" 
@@ -236,7 +191,7 @@ function LoginPopup1N() {
             )}
           </div>
 
-          {cameraActive && (
+          {camera.cameraActive && (
             <p className="camera-hint">
               📸 Position your face within the oval guide
             </p>
@@ -266,26 +221,9 @@ function LoginPopup1N() {
           </div>
 
           {/* Messages */}
-          {error && (
-            <div className="status-message error">
-              <div className="status-icon">❌</div>
-              <div className="status-text">{error}</div>
-            </div>
-          )}
-
-          {success && (
-            <div className="status-message success">
-              <div className="status-icon">✅</div>
-              <div className="status-text">{success}</div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="status-message verifying">
-              <div className="spinner"></div>
-              <div className="status-text">⏳ Searching for your face in database...</div>
-            </div>
-          )}
+          {error && <StatusMessage type="error" message={error} />}
+          {success && <StatusMessage type="success" message={success} />}
+          {loading && <StatusMessage type="loading" message="⏳ Searching for your face in database..." />}
         </div>
 
         {/* Action Buttons */}
@@ -293,7 +231,7 @@ function LoginPopup1N() {
           <button
             onClick={captureAndIdentify}
             className="btn-action btn-capture"
-            disabled={loading || !cameraActive}
+            disabled={loading || !camera.cameraActive}
           >
             {loading ? '⏳ Identifying...' : '🎯 Capture & Identify'}
           </button>

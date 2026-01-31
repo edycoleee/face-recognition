@@ -108,107 +108,53 @@ class FaceLogin(Resource):
             - confidence: Confidence score
         """
         data = request.json
-        
-        # Validate request
         if not data:
-            return {
-                "success": False,
-                "message": "No data provided"
-            }, HTTPStatus.BAD_REQUEST
+            return error_response("No data provided", HTTPStatus.BAD_REQUEST)
         
-        # Get email
+        # Extract and validate email
         email = data.get('email')
         if not email:
-            return {
-                "success": False,
-                "message": "Email is required"
-            }, HTTPStatus.BAD_REQUEST
+            return error_response("Email is required", HTTPStatus.BAD_REQUEST)
         
-        # Validate email format
         if not validate_email(email):
-            return {
-                "success": False,
-                "message": "Invalid email format"
-            }, HTTPStatus.BAD_REQUEST
+            return error_response("Invalid email format", HTTPStatus.BAD_REQUEST)
         
-        # Get image
+        # Extract and validate image
         base64_image = data.get('image')
         if not base64_image:
-            return {
-                "success": False,
-                "message": "Image is required"
-            }, HTTPStatus.BAD_REQUEST
+            return error_response("Image is required", HTTPStatus.BAD_REQUEST)
         
-        # Validate base64 image
         is_valid, error_msg = validate_base64_image(base64_image)
         if not is_valid:
-            return {
-                "success": False,
-                "message": error_msg
-            }, HTTPStatus.BAD_REQUEST
+            return error_response(error_msg, HTTPStatus.BAD_REQUEST)
         
-        # Get threshold (optional)
+        # Extract and validate threshold (optional)
         threshold = data.get('threshold')
         if threshold is not None:
             try:
                 threshold = float(threshold)
                 if not (0.0 <= threshold <= 1.0):
-                    return {
-                        "success": False,
-                        "message": "Threshold must be between 0.0 and 1.0"
-                    }, HTTPStatus.BAD_REQUEST
+                    return error_response(
+                        "Threshold must be between 0.0 and 1.0",
+                        HTTPStatus.BAD_REQUEST
+                    )
             except ValueError:
-                return {
-                    "success": False,
-                    "message": "Invalid threshold value"
-                }, HTTPStatus.BAD_REQUEST
+                return error_response("Invalid threshold value", HTTPStatus.BAD_REQUEST)
         
         try:
             # Decode base64 to numpy array
             face_image = decode_base64_image(base64_image)
             if face_image is None:
-                return {
-                    "success": False,
-                    "message": "Failed to decode image"
-                }, HTTPStatus.BAD_REQUEST
+                return error_response("Failed to decode image", HTTPStatus.BAD_REQUEST)
             
-            # Perform face login
+            # Perform face login (1:1 verification)
             match, auth_result, confidence = AuthService.face_login(email, face_image, threshold)
             
+            # Handle failed verification
             if not match:
-                # Check if we detected wrong person
-                if auth_result and isinstance(auth_result, dict) and 'user_id' in auth_result:
-                    # This is actual_identity of wrong person
-                    logger.warning(
-                        f"Face login failed for {email}. "
-                        f"Detected as {auth_result['user_name']} (ID: {auth_result['user_id']}) instead. "
-                        f"Confidence: {auth_result['confidence']:.2f}"
-                    )
-                    return {
-                        "success": False,
-                        "message": f"Face verification failed. This appears to be {auth_result['user_name']} instead of {email}.",
-                        "data": {
-                            "match": False,
-                            "confidence": confidence,
-                            "actual_identity": {
-                                "user_id": auth_result['user_id'],
-                                "user_name": auth_result['user_name'],
-                                "detected_confidence": auth_result['confidence']
-                            }
-                        }
-                    }, HTTPStatus.UNAUTHORIZED
-                
-                # No identity detected
-                logger.warning(f"Face login failed for {email}, confidence={confidence:.2f}")
-                return {
-                    "success": False,
-                    "message": f"Face verification failed. Confidence: {confidence:.2f}",
-                    "data": {
-                        "match": False,
-                        "confidence": confidence
-                    }
-                }, HTTPStatus.UNAUTHORIZED
+                return self._handle_failed_face_login(email, auth_result, confidence)
             
+            # Handle successful verification
             logger.info(f"Face login successful for {email}, confidence={confidence:.2f}")
             
             return {
@@ -227,10 +173,45 @@ class FaceLogin(Resource):
             
         except Exception as e:
             logger.error(f"Face login error: {str(e)}")
+            return error_response(
+                f"Face login failed: {str(e)}",
+                HTTPStatus.INTERNAL_SERVER_ERROR
+            )
+    
+    @staticmethod
+    def _handle_failed_face_login(email: str, auth_result: dict, confidence: float):
+        """Handle failed face login with detailed error messages"""
+        # Check if we detected a different person (wrong identity)
+        if auth_result and isinstance(auth_result, dict) and 'user_id' in auth_result:
+            logger.warning(
+                f"Face login failed for {email}. "
+                f"Detected as {auth_result['user_name']} (ID: {auth_result['user_id']}) instead. "
+                f"Confidence: {auth_result['confidence']:.2f}"
+            )
             return {
                 "success": False,
-                "message": f"Face login failed: {str(e)}"
-            }, HTTPStatus.INTERNAL_SERVER_ERROR
+                "message": f"Face verification failed. This appears to be {auth_result['user_name']} instead of {email}.",
+                "data": {
+                    "match": False,
+                    "confidence": confidence,
+                    "actual_identity": {
+                        "user_id": auth_result['user_id'],
+                        "user_name": auth_result['user_name'],
+                        "detected_confidence": auth_result['confidence']
+                    }
+                }
+            }, HTTPStatus.UNAUTHORIZED
+        
+        # No matching identity detected
+        logger.warning(f"Face login failed for {email}, confidence={confidence:.2f}")
+        return {
+            "success": False,
+            "message": f"Face verification failed. Confidence: {confidence:.2f}",
+            "data": {
+                "match": False,
+                "confidence": confidence
+            }
+        }, HTTPStatus.UNAUTHORIZED
 
 
 @api.route("/login-pass")

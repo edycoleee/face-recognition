@@ -136,17 +136,18 @@ class AuthService:
                 cursor.execute(query, (token,))
                 result = cursor.fetchone()
                 
+                # Early return for not found
                 if not result:
                     logger.warning(f"Token not found: {token[:8]}...")
                     return None
                 
-                # Check if token is active
+                # Early return for inactive token
                 if not result["is_active"]:
                     logger.warning(f"Token inactive: {token[:8]}...")
                     return None
                 
-                # Check if token expired
-                if datetime.now() > result["expires_at"]:
+                # Early return for expired token
+                if datetime.now(timezone.utc) > result["expires_at"].replace(tzinfo=timezone.utc):
                     logger.warning(f"Token expired: {token[:8]}...")
                     return None
                 
@@ -173,7 +174,7 @@ class AuthService:
             token: UUID token string
             
         Returns:
-            True if successful
+            True if successful, False if token not found
         """
         try:
             with get_db_connection() as conn:
@@ -182,7 +183,7 @@ class AuthService:
                 query = """
                     UPDATE auth_tokens
                     SET is_active = FALSE
-                    WHERE token = %s
+                    WHERE token = %s AND is_active = TRUE
                     RETURNING id
                 """
                 
@@ -190,12 +191,12 @@ class AuthService:
                 result = cursor.fetchone()
                 conn.commit()
                 
-                if result:
-                    logger.info(f"Token deactivated: {token[:8]}...")
-                    return True
+                if not result:
+                    logger.warning(f"Token not found for deactivation: {token[:8]}...")
+                    return False
                 
-                logger.warning(f"Token not found for deactivation: {token[:8]}...")
-                return False
+                logger.info(f"Token deactivated: {token[:8]}...")
+                return True
                 
         except Exception as e:
             logger.error(f"Error deactivating token: {str(e)}")
@@ -259,7 +260,7 @@ class AuthService:
             email: User email
             
         Returns:
-            User info if found
+            User info if found, None otherwise
         """
         try:
             with get_db_connection() as conn:
@@ -275,6 +276,7 @@ class AuthService:
                 result = cursor.fetchone()
                 
                 if not result:
+                    logger.debug(f"User not found for email: {email}")
                     return None
                 
                 return {
@@ -298,11 +300,10 @@ class AuthService:
             password: Plain text password
             
         Returns:
-            Authentication result with token
+            Authentication result with token if successful, None otherwise
         """
         # Get user by email
         user = AuthService.get_user_by_email(email)
-        
         if not user:
             logger.warning(f"Login failed: User not found for email={email}")
             return None
@@ -312,7 +313,7 @@ class AuthService:
             logger.warning(f"Login failed: Invalid password for email={email}")
             return None
         
-        # Generate token
+        # Generate authentication token
         token_info = AuthService.create_auth_token(
             user["id"],
             Auth.DEFAULT_CONFIDENCE
@@ -346,62 +347,32 @@ class AuthService:
         
         # Get user by email
         user = AuthService.get_user_by_email(email)
-        
         if not user:
             logger.warning(f"Face login failed: User not found for email={email}")
             return False, None, 0.0
         
         user_id = user["id"]
         
-        # Use verify_face function for face verification
+        # Perform face verification (1:1 comparison)
         match, confidence = verify_face(user_id, face_image, threshold)
         
+        # Handle failed verification
         if not match:
             logger.warning(f"Face login failed: No match for user_id={user_id}, confidence={confidence:.2f}")
             
-            # Try to identify who this actually is (security feature)
-            try:
-                from services.identification_service import identify_face, extract_face_embedding
-                
-                # Extract embedding first to reuse
-                query_embedding, error = extract_face_embedding(
-                    # Convert numpy array to base64 for identify_face
-                    "data:image/jpeg;base64," + ""  # We'll use direct face_image instead
+            # Try to identify actual person (security feature)
+            actual_identity = AuthService._identify_actual_person(face_image, threshold)
+            if actual_identity:
+                logger.warning(
+                    f"Wrong person detected! Expected user_id={user_id}, "
+                    f"but detected user_id={actual_identity['user_id']} ({actual_identity['user_name']}) "
+                    f"with confidence={actual_identity['confidence']:.2f}"
                 )
-                
-                # Actually, let's use find_best_match which accepts numpy array directly
-                from services.recognition_service import find_best_match, get_face_analyzer
-                
-                app = get_face_analyzer()
-                faces = app.get(face_image)
-                
-                if len(faces) == 1:
-                    from utils.embedding_utils import normalize_embedding
-                    query_embedding = normalize_embedding(faces[0].embedding)
-                    
-                    success, message, result = find_best_match(query_embedding, threshold)
-                    
-                    if success and result.get('identified'):
-                        # Found who this actually is
-                        actual_identity = {
-                            'user_id': result['user_id'],
-                            'user_name': result['user_name'],
-                            'confidence': result['confidence']
-                        }
-                        
-                        logger.warning(
-                            f"Wrong person detected! Expected user_id={user_id}, "
-                            f"but detected user_id={result['user_id']} ({result['user_name']}) "
-                            f"with confidence={result['confidence']:.2f}"
-                        )
-                        
-                        return False, actual_identity, confidence
-            except Exception as e:
-                logger.warning(f"Failed to identify actual person: {str(e)}")
+                return False, actual_identity, confidence
             
             return False, None, confidence
         
-        # Generate token
+        # Generate authentication token
         token_info = AuthService.create_auth_token(user_id, confidence)
         
         logger.info(f"Face login successful for user_id={user_id}, confidence={confidence:.2f}")
@@ -414,3 +385,44 @@ class AuthService:
             "expires_at": token_info["expires_at"],
             "confidence": confidence
         }, confidence
+    
+    @staticmethod
+    def _identify_actual_person(face_image, threshold: float) -> Optional[Dict]:
+        """
+        Try to identify who the person actually is (for security logging)
+        
+        Args:
+            face_image: Face image (numpy array)
+            threshold: Confidence threshold
+            
+        Returns:
+            Identity information if found, None otherwise
+        """
+        try:
+            from services.recognition_service import find_best_match, get_face_analyzer
+            from utils.embedding_utils import normalize_embedding
+            
+            app = get_face_analyzer()
+            faces = app.get(face_image)
+            
+            if len(faces) != 1:
+                return None
+            
+            # Extract and normalize embedding
+            query_embedding = normalize_embedding(faces[0].embedding)
+            
+            # Find best match in database
+            success, message, result = find_best_match(query_embedding, threshold)
+            
+            if success and result.get('identified'):
+                return {
+                    'user_id': result['user_id'],
+                    'user_name': result['user_name'],
+                    'confidence': result['confidence']
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to identify actual person: {str(e)}")
+            return None

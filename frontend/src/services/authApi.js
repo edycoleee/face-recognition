@@ -6,33 +6,64 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /**
+ * Base API fetch function with consistent error handling
+ * @param {string} endpoint - API endpoint (e.g., '/auth/login-face')
+ * @param {Object} options - Fetch options (method, body, etc.)
+ * @returns {Promise<Object>} Response data
+ * @throws {Error} If request fails or response is not ok
+ */
+const apiFetch = async (endpoint, options = {}) => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const defaultOptions = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  };
+
+  const fetchOptions = { ...defaultOptions, ...options };
+
+  try {
+    const response = await fetch(url, fetchOptions);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || `API request failed with status ${response.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    // Network error or JSON parse error
+    if (error instanceof TypeError) {
+      throw new Error('Network error: Unable to reach server');
+    }
+    throw error;
+  }
+};
+
+/**
  * Login with face verification (1:1)
  * 
  * @param {string} email - User email
  * @param {string} base64Image - Base64 encoded image string
  * @param {number} threshold - Confidence threshold (optional)
- * @returns {Promise} Response with token and user info
+ * @returns {Promise<Object>} Response with token and user info
+ * @throws {Error} If login fails
  */
 export const loginWithFace = async (email, base64Image, threshold = 0.6) => {
-  const response = await fetch(`${API_BASE_URL}/auth/login-face`, {
+  if (!email || !base64Image) {
+    throw new Error('Email and image are required');
+  }
+
+  return apiFetch('/auth/login-face', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify({
       email,
       image: base64Image,
       threshold
     }),
   });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Face login failed');
-  }
-
-  return data;
 };
 
 /**
@@ -40,112 +71,88 @@ export const loginWithFace = async (email, base64Image, threshold = 0.6) => {
  * 
  * @param {string} email - User email
  * @param {string} password - User password
- * @returns {Promise} Response with token and user info
+ * @returns {Promise<Object>} Response with token and user info
+ * @throws {Error} If login fails
  */
 export const loginWithPassword = async (email, password) => {
-  const response = await fetch(`${API_BASE_URL}/auth/login-pass`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Password login failed');
+  if (!email || !password) {
+    throw new Error('Email and password are required');
   }
 
-  return data;
+  return apiFetch('/auth/login-pass', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
 };
 
 /**
  * Verify token validity
  * 
  * @param {string} token - UUID token
- * @returns {Promise} Response with user info if valid
+ * @returns {Promise<Object>} Response with user info if valid
+ * @throws {Error} If token is invalid
  */
 export const verifyToken = async (token) => {
-  const response = await fetch(`${API_BASE_URL}/auth/verify`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ token }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Token verification failed');
+  if (!token) {
+    throw new Error('Token is required');
   }
 
-  return data;
+  return apiFetch('/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
 };
 
 /**
  * Logout (deactivate token)
  * 
  * @param {string} token - UUID token
- * @returns {Promise} Response with success status
+ * @returns {Promise<Object>} Response with success status
+ * @throws {Error} If logout fails
  */
 export const logout = async (token) => {
-  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ token }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Logout failed');
+  if (!token) {
+    throw new Error('Token is required');
   }
 
-  return data;
+  return apiFetch('/auth/logout', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
 };
 
 /**
  * Get all active tokens for a user
  * 
  * @param {number} userId - User ID
- * @returns {Promise} Response with list of tokens
+ * @returns {Promise<Object>} Response with list of tokens
+ * @throws {Error} If request fails
  */
 export const getUserTokens = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/auth/tokens/${userId}`, {
-    method: 'GET',
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to get user tokens');
+  if (!userId) {
+    throw new Error('User ID is required');
   }
 
-  return data;
+  return apiFetch(`/auth/tokens/${userId}`, {
+    method: 'GET',
+  });
 };
 
 /**
  * Get user by email (for attendance purposes)
  * 
  * @param {string} email - User email
- * @returns {Promise} Response with user info
+ * @returns {Promise<Object>} Response with user info
+ * @throws {Error} If user not found
  */
 export const getUserByEmail = async (email) => {
-  const response = await fetch(`${API_BASE_URL}/users?email=${encodeURIComponent(email)}`, {
-    method: 'GET',
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || 'User not found');
+  if (!email) {
+    throw new Error('Email is required');
   }
 
-  return data;
+  return apiFetch(`/users?email=${encodeURIComponent(email)}`, {
+    method: 'GET',
+  });
 };
 
 /**
