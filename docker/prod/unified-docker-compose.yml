@@ -1,0 +1,115 @@
+# ============================================================
+# UNIFIED PRODUCTION DEPLOYMENT
+# ============================================================
+# All services in one network, only Nginx + Cloudflared exposed
+# Domain: kalijaga.fun via Cloudflare Tunnel
+# ============================================================
+
+services:
+  # ============================================================
+  # DATABASE - PostgreSQL with pgvector
+  # ============================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: face-db-postgres
+    environment:
+      POSTGRES_DB: face_db
+      POSTGRES_USER: sultan
+      POSTGRES_PASSWORD: Sulfat123#!
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    volumes:
+      - ../../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sultan -d face_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+    restart: unless-stopped
+    # NO PORT EXPOSURE - Internal only
+
+  # ============================================================
+  # BACKEND - Flask API
+  # ============================================================
+  backend:
+    container_name: flask-backend
+    build:
+      context: ../../backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: face_db
+      DB_USER: sultan
+      DB_PASSWORD: Sulfat123#!
+      FLASK_DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: unless-stopped
+    # NO PORT EXPOSURE - Internal only
+
+  # ============================================================
+  # FRONTEND - Vite React
+  # ============================================================
+  frontend:
+    container_name: vite-frontend
+    build:
+      context: ../../frontend
+      args:
+        VITE_API_URL: https://kalijaga.fun/api
+    depends_on:
+      - backend
+    networks:
+      - app_network
+    restart: unless-stopped
+    # NO PORT EXPOSURE - Internal only
+
+  # ============================================================
+  # PGADMIN - Database Management
+  # ============================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: face-db-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_ADDRESS: 0.0.0.0
+      SCRIPT_NAME: /pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - app_network
+    restart: unless-stopped
+    # NO PORT EXPOSURE - Internal only
+
+  # ============================================================
+  # NGINX - Reverse Proxy
+  # ============================================================
+  nginx:
+    container_name: reverse-proxy
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+      - pgadmin
+    networks:
+      - app_network
+    restart: unless-stopped
+    # Exposed to localhost:8080 for cloudflared tunnel (already running on host)
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  app_network:
+    name: face_recognition_network
+    driver: bridge
