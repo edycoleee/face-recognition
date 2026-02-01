@@ -8,6 +8,26 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - **Containerization**: Docker Compose
 
 ---
+### Arsitektur :
+- Model: InsightFace (buffalo_l) dengan ONNX Runtime
+- Database: PostgreSQL + pgvector untuk vector similarity
+- Algoritma: Cosine Similarity untuk face matching
+- Backend: Flask + Flask-RESTX
+- Strategi Embedding: Averaging, Save All, Top-K, Clustering
+### Kelebihan Sistem Sekarang:
+✅ Solid foundation - InsightFace adalah state-of-the-art (SOTA) untuk face recognition
+✅ Sudah ada refactoring - Clean code structure, service pattern
+✅ pgvector integration - Scalable untuk jutaan wajah
+✅ Multiple authentication - Face + Password hybrid
+✅ Production-ready - Docker, Nginx, multi-environment
+
+### Kelemahan:
+⚠️ CPU-only - Lambat untuk real-time jika banyak user
+⚠️ Monolithic Flask - Sulit scale horizontal
+⚠️ No caching - Setiap request hit model & database
+⚠️ Single model - Tidak ada fallback jika InsightFace gagal
+
+---
 
 ## 📋 Tahap Pengembangan
 
@@ -1346,6 +1366,34 @@ git push -u origin main
 7. 🔄 Production deployment - Planned
 
 ---
+
+### UPGRADE KEDEPAN :
+```
+Phase 1: Performance Optimization (2 minggu)
+├─ Tambah Redis caching untuk embeddings
+├─ pgvector HNSW indexing
+└─ Connection pooling optimization
+
+Phase 2: Scalability (1 bulan)
+├─ Microservices separation:
+│  ├─ Face Detection Service
+│  ├─ Recognition Service
+│  └─ Attendance Service
+├─ Message Queue (RabbitMQ/Celery)
+└─ Load balancer
+
+Phase 3: Model Enhancement (1-2 bulan)
+├─ Hybrid model (InsightFace + AdaFace)
+├─ Model versioning system
+└─ A/B testing framework
+
+Phase 4: Advanced Features
+├─ Liveness detection (anti-spoofing)
+├─ Multi-camera support
+├─ Real-time streaming
+└─ Analytics dashboard
+```
+
 
 ## 📄 License
 
