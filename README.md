@@ -1343,6 +1343,12 @@ git push -u origin main
    - ✅ Shared components
    - ✅ DRY services layer
 6. 🔄 Docker Compose setup - In Progress
+
+```
+cd /home/ubuntusvr/flask-docker/docker/prod
+docker compose -p prod down
+docker compose -p prod up -d --build
+```
 7. 🔄 Production deployment - Planned
 
 ---
