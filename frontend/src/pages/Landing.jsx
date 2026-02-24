@@ -13,13 +13,6 @@ function Landing() {
       color: '#FF9800'
     },
     {
-      title: 'Face Recognition',
-      description: 'Detect & identify faces (1:N matching)',
-      icon: '🔍',
-      path: '/face-recognition',
-      color: '#E91E63'
-    },
-    {
       title: 'Face Login',
       description: 'Face Recognition or Password Authentication',
       icon: '🚀',

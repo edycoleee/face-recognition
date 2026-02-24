@@ -265,22 +265,6 @@ function UsersPage() {
                         )}
                       </div>
 
-                      {user.face_registered && (
-                        <>
-                          <button
-                            className="btn-predict"
-                            onClick={() => navigate(`/users/${user.id}/predict?mode=1-n`)}
-                          >
-                            🔍 Predict 1:N
-                          </button>
-                          <button
-                            className="btn-verify"
-                            onClick={() => navigate(`/users/${user.id}/predict?mode=1-1`)}
-                          >
-                            ✓ Predict 1:1
-                          </button>
-                        </>
-                      )}
                       <button
                         className="btn-edit"
                         onClick={() => openModal(user)}

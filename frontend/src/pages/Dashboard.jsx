@@ -164,18 +164,6 @@ function Dashboard() {
               📷 Register Face
             </button>
             <button 
-              onClick={() => navigate(`/users/${userData.userId}/predict`)} 
-              className="btn-action"
-            >
-              🔍 Face Prediction
-            </button>
-            <button 
-              onClick={() => navigate('/face-recognition')} 
-              className="btn-action"
-            >
-              🎯 Face Recognition
-            </button>
-            <button 
               onClick={() => navigate('/attendance')} 
               className="btn-action"
             >

@@ -1,23 +1,22 @@
 
-# Flask Face Detection & Recognition API
+# Flask Face Recognition System
 
-Full-stack aplikasi untuk face detection dan face recognition menggunakan:
+Full-stack aplikasi untuk face registration, authentication, dan attendance menggunakan:
 - **Frontend**: React + Vite + React Router + JavaScript
 - **Backend**: Flask + Flask-RESTX + InsightFace + ONNX
 - **Database**: PostgreSQL + pgvector + pgAdmin
 - **Containerization**: Docker Compose
 
+**Core Features**: User Registration, Face Login, Face Attendance
+
 ---
 
 ## 📋 Tahap Pengembangan
 
-### ✅ Tahap 1: User Management
+### ✅ Tahap 1: User Management & Face Registration
 - CRUD operations untuk user
 - PostgreSQL database integration
 - User pagination (15 per page)
-- Face registration status tracking
-
-### ✅ Tahap 2: Face Registration
 - Multi-image capture (5-10 gambar per user)
 - Manual & Auto capture modes
 - Real-time face validation (quality check)
@@ -27,29 +26,17 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - **⭐ Averaging Method**: 10 gambar → 1 optimized embedding (90% storage reduction)
 - PostgreSQL pgvector storage
 
-### ✅ Tahap 3: Face Recognition & Identification
-- **Standard Mode**: Upload image atau webcam dengan mode selector
-- **Optimized Popup Mode**: 
-  - Dual canvas architecture (input + output separation)
-  - Downscaling 320px untuk API call lebih cepat
-  - Manual capture & continuous mode (3s interval)
-  - Real-time bounding box dengan identity label
-  - Confidence scoring display
-- 1:N Face identification (compare dengan semua user)
-- 1:1 Face verification (verify specific user)
-- N:N Multiple faces recognition (detect & identify all faces)
-- Cosine similarity matching
-- Real-time prediction dari webcam
-
-### ✅ Tahap 4: Authentication System
+### ✅ Tahap 2: Authentication System
 - **Face Login Popup**: OAuth2-style popup authentication
 - **Login Page**: Username/password + Face Login option
 - JWT token generation & validation
 - Session management dengan localStorage
 - Protected routes dengan ProtectedRoute component
 - Auto-redirect untuk authenticated users
+- 1:N Face identification (face login)
+- Cosine similarity matching
 
-### ✅ Tahap 5: Face Attendance System
+### ✅ Tahap 3: Face Attendance System
 - **Single Attendance** (`1:1`): Manual capture untuk specific user
 - **Multi Attendance** (`N:N`): Multi-face detection dalam 1 frame
 - **Continuous Attendance**: Auto-recognition setiap 3 detik
@@ -582,7 +569,7 @@ Verify face matches specific user (1:1 verification).
 ### 1. Landing Page (`/`)
 - Navigation ke semua fitur aplikasi
 - Protected dashboard access
-- Feature cards: Recognition, Registration, Attendance, Users
+- Feature cards: Registration, Login, Attendance
 
 ### 2. Login Page (`/login`)
 - **Standard Login**: Email + Password authentication
@@ -593,7 +580,7 @@ Verify face matches specific user (1:1 verification).
 
 ### 3. Dashboard (`/dashboard`)
 - Protected route (requires authentication)
-- Quick access ke semua features
+- Quick access ke semua features (Users, Register Face, Attendance)
 - User profile display
 - Logout functionality
 
@@ -608,28 +595,10 @@ Verify face matches specific user (1:1 verification).
   - Delete User (cascade delete embeddings)
 - **Action Buttons**:
   - 📷 Register Face - Navigate ke registration page
-  - 🔍 Predict - Navigate ke prediction page (only for registered users)
+  - ➕ Update Face - Add more face images
+  - 🔄 Re-register - Replace all face embeddings
 
-### 5. Face Recognition Page (`/face-recognition`)
-- **2-Tab Navigation**:
-  1. **Standard Mode**: Upload image atau webcam dengan mode selector
-  2. **Webcam Popup Optimized**: Dual canvas optimization
-- **Optimized Popup Features**:
-  - Dual canvas (input capture + output render)
-  - Downscaling 320px untuk faster API calls
-  - **Manual Capture**: Single click recognition
-  - **Start Continuous**: Auto-recognition setiap 3 detik
-  - Real-time bounding box dengan identity labels
-  - Result panel dengan user info (name, email, confidence)
-  - Detection counter untuk continuous mode
-- **Results Display**:
-  - Avatar dengan initial letter
-  - User name & email
-  - Confidence percentage dengan progress bar
-  - Success badge indicator
-  - Tips untuk optimal recognition
-
-### 6. Attendance Page (`/attendance`)
+### 5. Attendance Page (`/attendance`)
 - **5-Tab Navigation**:
   1. **Face 1:1**: Single user attendance (specific user)
   2. **Face N:N**: Multi-face attendance (multiple users)
@@ -651,7 +620,7 @@ Verify face matches specific user (1:1 verification).
   - Cannot record within 2 hours (duplicate prevention)
   - Timestamp & confidence score recording
 
-### 7. Face Registration Page (`/users/:userId/register-face`)
+### 6. Face Registration Page (`/users/:userId/register-face`)
 - **Camera Control**: Start/Stop webcam
 - **🎯 Oval Face Guide**: 
   - Visual template berbentuk oval untuk optimal positioning
@@ -671,28 +640,6 @@ Verify face matches specific user (1:1 verification).
   - Delete individual captures
   - Target: 5-10 images per user
 - **Submit**: Register semua captures ke database
-
-### 8. Face Prediction Page (`/users/:userId/predict`)
-- **Camera Capture**: Webcam integration
-- **🎯 Oval Face Guide**:
-  - Same visual template untuk consistency
-  - Ensure face position matches registration data
-  - Green border indicator saat ready to capture
-- **Real-time Identification**: 
-  - Capture & predict button
-  - API call ke `/api/identify/`
-- **Results Display**:
-  - **Match Found** (confidence >= 60%):
-    - ✅ Green card dengan user info
-    - User name, email, confidence %
-    - Similarity score
-  - **No Match** (confidence < 60%):
-    - ❌ Red card
-    - Best confidence vs threshold
-  - **Top 5 Matches Table**:
-    - Ranking dengan confidence scores
-    - Highlight best match
-- **Try Again**: Reset untuk predict ulang
 
 ---
 
@@ -772,42 +719,38 @@ face-recognition/
 │   └── install_deps.sh
 ├── frontend/
 │   ├── src/
-│   │   ├── components/                    # 🔄 REFACTORED: Shared UI components
-│   │   │   ├── FaceRecognition.jsx
+│   │   ├── components/                    # Shared UI components
 │   │   │   ├── ProtectedRoute.jsx         # Auth protection
-│   │   │   ├── CameraPreview.jsx          # ✨ NEW: Reusable camera component
+│   │   │   ├── CameraPreview.jsx          # Reusable camera component
 │   │   │   ├── CameraPreview.css          # Camera styling dengan oval guide
-│   │   │   ├── StatusMessage.jsx          # ✨ NEW: Status display (error/success/loading)
-│   │   │   ├── StatusMessage.css          # Status message styling
-│   │   │   └── *.css
-│   │   ├── hooks/                         # ✨ NEW: Custom React hooks
+│   │   │   ├── StatusMessage.jsx          # Status display (error/success/loading)
+│   │   │   └── StatusMessage.css          # Status message styling
+│   │   ├── hooks/                         # Custom React hooks
 │   │   │   ├── useCamera.js               # Camera state & capture logic
 │   │   │   ├── useFaceLogin.js            # Face verification & login flow
 │   │   │   └── usePasswordLogin.js        # Password authentication flow
-│   │   ├── pages/                         # 🔄 REFACTORED: Login.jsx & LoginPopup1N.jsx
-│   │   │   ├── Landing.jsx
-│   │   │   ├── Login.jsx                  # 🔄 Uses custom hooks (539→405 lines, -25%)
-│   │   │   ├── LoginPopup1N.jsx           # 🔄 Uses useCamera hook (329→265 lines, -21%)
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── FaceLoginPopup.jsx
-│   │   │   ├── FaceRecognitionPage.jsx    # 2 tabs
-│   │   │   ├── FaceRecognitionOptimizedPopup.jsx
-│   │   │   ├── AttendancePage.jsx         # 5 tabs
+│   │   ├── pages/                         # Application pages
+│   │   │   ├── Landing.jsx                # Home page
+│   │   │   ├── Login.jsx                  # Login with face & password
+│   │   │   ├── LoginPopup1N.jsx           # Face login popup (1:N)
+│   │   │   ├── Dashboard.jsx              # Protected dashboard
+│   │   │   ├── FaceLoginPopup.jsx         # Face login popup (standard)
+│   │   │   ├── HaloPage.jsx               # API test page
+│   │   │   ├── AttendancePage.jsx         # Attendance with 5 modes
 │   │   │   ├── FaceAttendancePopup.jsx
 │   │   │   ├── FaceAttendanceMultiPopup.jsx
 │   │   │   ├── FaceAttendanceContinuousPopup.jsx
-│   │   │   ├── UsersPage.jsx
-│   │   │   ├── FaceRegistration.jsx
-│   │   │   ├── FacePrediction.jsx
+│   │   │   ├── UsersPage.jsx              # User management
+│   │   │   ├── FaceRegistration.jsx       # Face registration
 │   │   │   └── *.css
-│   │   ├── services/                      # 🔄 REFACTORED: DRY pattern dengan base fetch
-│   │   │   ├── authApi.js                 # 🔄 Base apiFetch() function (318→280 lines, -12%)
-│   │   │   ├── attendanceApi.js
-│   │   │   └── userApi.js
+│   │   ├── services/                      # API services
+│   │   │   ├── authApi.js                 # Authentication API
+│   │   │   ├── attendanceApi.js           # Attendance API
+│   │   │   ├── faceApi.js                 # Face registration API
+│   │   │   └── userApi.js                 # User management API
 │   │   ├── utils/
-│   │   │   ├── popupAuth.js
-│   │   │   ├── popupAttendance.js
-│   │   │   └── popupRecognition.js
+│   │   │   ├── popupAuth.js               # Auth popup utilities
+│   │   │   └── popupAttendance.js         # Attendance popup utilities
 │   │   ├── App.jsx
 │   │   ├── App.css
 │   │   └── main.jsx
@@ -927,22 +870,7 @@ curl -X POST http://localhost:5000/api/identify/ \
 10. Status berubah: "✅ Registered (10)"
 ```
 
-### 4. Face Recognition
-```
-1. Navigate ke /face-recognition
-2. Option 1 - Standard Mode:
-   - Upload image atau gunakan webcam
-   - Click "Recognize"
-   - Lihat hasil (name, email, confidence)
-3. Option 2 - Optimized Popup:
-   - Click "Open Optimized Recognition"
-   - Popup dengan dual canvas terbuka
-   - Manual: Click "Capture & Recognize"
-   - Continuous: Click "Start Continuous" (auto setiap 3s)
-   - Hasil tampil di panel kanan dengan confidence bar
-```
-
-### 5. Face Attendance
+### 4. Face Attendance
 ```
 1. Navigate ke /attendance
 2. Pilih mode (5 tabs):
@@ -1225,24 +1153,25 @@ git push -u origin main
 
 ## 🎯 Development Status
 
-1. ✅ Face Detection - Complete
-2. ✅ Face Recognition - Complete
+1. ✅ User Management & Face Registration - Complete
+   - ✅ CRUD operations untuk users
    - ✅ Face embedding extraction (512-dim vectors)
    - ✅ Database integration (PostgreSQL + pgvector)
-   - ✅ Face registration endpoint (multi-image with averaging)
-   - ✅ Face matching endpoint (1:1 & 1:N)
-3. ✅ Authentication System - Complete
+   - ✅ Multi-image capture dengan averaging method
+2. ✅ Authentication System - Complete
    - ✅ JWT token authentication
    - ✅ Password & Face login
    - ✅ OAuth2-style popup authentication
-4. ✅ Attendance System - Complete
+   - ✅ Protected routes
+3. ✅ Attendance System - Complete
    - ✅ Single, Multi, & Continuous attendance modes
    - ✅ 2-hour duplicate protection
-5. ✅ Frontend Refactoring - Complete
-   - ✅ Custom hooks pattern
-   - ✅ Shared components
-   - ✅ DRY services layer
-6. 🔄 Docker Compose setup - In Progress
+   - ✅ Real-time face recognition
+4. ✅ Frontend Optimization - Complete
+   - ✅ Custom hooks pattern (useCamera, useFaceLogin, usePasswordLogin)
+   - ✅ Shared components (CameraPreview, StatusMessage)
+   - ✅ Simplified routing (Registration, Login, Attendance only)
+5. 🔄 Docker Compose setup - In Progress
 
 ```
 cd /home/ubuntusvr/flask-docker/docker/prod

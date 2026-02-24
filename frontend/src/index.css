@@ -3,20 +3,15 @@
 @import './pages/Login.css';
 @import './pages/Dashboard.css';
 @import './pages/HaloPage.css';
-@import './pages/FaceRecognitionPage.css';
 @import './pages/AttendancePage.css';
 @import './pages/UsersPage.css';
 @import './pages/FaceRegistration.css';
-@import './pages/FacePrediction.css';
 @import './pages/FaceLoginPopup.css';
-@import './pages/FaceRecognitionPopup.css';
 @import './pages/FaceAttendancePopup.css';
 @import './pages/FaceAttendanceMultiPopup.css';
 @import './pages/FaceAttendanceContinuousPopup.css';
-@import './pages/FaceRecognitionOptimizedPopup.css';
 
 /* Import all component CSS */
-@import './components/FaceRecognition.css';
 @import './components/CameraPreview.css';
 @import './components/StatusMessage.css';
 
