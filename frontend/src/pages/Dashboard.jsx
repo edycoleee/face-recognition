@@ -170,10 +170,16 @@ function Dashboard() {
               🔍 Face Prediction
             </button>
             <button 
-              onClick={() => navigate('/face-detection')} 
+              onClick={() => navigate('/face-recognition')} 
               className="btn-action"
             >
-              🎭 Face Detection
+              🎯 Face Recognition
+            </button>
+            <button 
+              onClick={() => navigate('/attendance')} 
+              className="btn-action"
+            >
+              ✅ Attendance
             </button>
           </div>
         </div>

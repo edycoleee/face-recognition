@@ -6,13 +6,6 @@ function Landing() {
 
   const cards = [
     {
-      title: 'Face Detection',
-      description: 'Upload images and detect faces using AI',
-      icon: '🎭',
-      path: '/face-detection',
-      color: '#2196F3'
-    },
-    {
       title: 'Face Registration',
       description: 'Manage users with CRUD operations and Image',
       icon: '👥',

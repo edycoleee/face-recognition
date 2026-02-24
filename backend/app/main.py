@@ -9,7 +9,6 @@ from flask_restx import Api
 from flask_cors import CORS
 
 from api.halo import api as halo_ns
-from api.detect import api as detect_ns
 from api.users import api as users_ns
 from api.face_registration import api as face_ns
 from api.face_identification import api as identify_ns
@@ -36,7 +35,6 @@ def register_namespaces(api: Api) -> None:
         api: Flask-RESTX Api instance
     """
     api.add_namespace(halo_ns, path="/halo")
-    api.add_namespace(detect_ns, path="/detect")
     api.add_namespace(users_ns, path="/users")
     api.add_namespace(face_ns, path="/face")
     api.add_namespace(identify_ns, path="/identify")

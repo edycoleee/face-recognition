@@ -11,20 +11,13 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 
 ## 📋 Tahap Pengembangan
 
-### ✅ Tahap 1: Face Detection
-- Upload image dan deteksi wajah
-- Webcam real-time face detection
-- Continuous detection mode
-- Bounding boxes dengan confidence score
-- Age dan gender prediction
-
-### ✅ Tahap 2: User Management
+### ✅ Tahap 1: User Management
 - CRUD operations untuk user
 - PostgreSQL database integration
 - User pagination (15 per page)
 - Face registration status tracking
 
-### ✅ Tahap 3: Face Registration
+### ✅ Tahap 2: Face Registration
 - Multi-image capture (5-10 gambar per user)
 - Manual & Auto capture modes
 - Real-time face validation (quality check)
@@ -34,7 +27,7 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - **⭐ Averaging Method**: 10 gambar → 1 optimized embedding (90% storage reduction)
 - PostgreSQL pgvector storage
 
-### ✅ Tahap 4: Face Recognition & Identification
+### ✅ Tahap 3: Face Recognition & Identification
 - **Standard Mode**: Upload image atau webcam dengan mode selector
 - **Optimized Popup Mode**: 
   - Dual canvas architecture (input + output separation)
@@ -44,10 +37,11 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
   - Confidence scoring display
 - 1:N Face identification (compare dengan semua user)
 - 1:1 Face verification (verify specific user)
+- N:N Multiple faces recognition (detect & identify all faces)
 - Cosine similarity matching
 - Real-time prediction dari webcam
 
-### ✅ Tahap 5: Authentication System
+### ✅ Tahap 4: Authentication System
 - **Face Login Popup**: OAuth2-style popup authentication
 - **Login Page**: Username/password + Face Login option
 - JWT token generation & validation
@@ -55,7 +49,7 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - Protected routes dengan ProtectedRoute component
 - Auto-redirect untuk authenticated users
 
-### ✅ Tahap 6: Face Attendance System
+### ✅ Tahap 5: Face Attendance System
 - **Single Attendance** (`1:1`): Manual capture untuk specific user
 - **Multi Attendance** (`N:N`): Multi-face detection dalam 1 frame
 - **Continuous Attendance**: Auto-recognition setiap 3 detik
@@ -66,17 +60,6 @@ Full-stack aplikasi untuk face detection dan face recognition menggunakan:
 - Database logging ke `attendance_logs` table
 - Duplicate prevention (can't record within 2 hours)
 - Attendance history tracking per user
-
-### ✅ Tahap 7: Face Detection Enhancement
-- **3-Tab Navigation**: Upload Image | Webcam | Webcam Continuous
-- **Upload Mode**: Drag & drop atau file selector
-- **Standard Webcam**: Single capture dengan bounding boxes
-- **Continuous Detection Popup**:
-  - Dual canvas (input capture + output render)
-  - Downscaling 320px untuk accurate bounding boxes
-  - Auto-detection setiap interval
-  - Summary-focused layout (stats cards + latest detection)
-  - Detection rate monitoring
 
 ---
 
@@ -208,51 +191,7 @@ Delete user (cascade delete face embeddings).
 
 ---
 
-### 3. Face Detection API (/api/detect)
-
-#### POST /api/detect/image
-Deteksi wajah dari uploaded image file.
-
-**Request:**
-```http
-POST /api/detect/image
-Content-Type: multipart/form-data
-
-file: [image file]
-```
-
-**Response:**
-```json
-{
-  "faces": [
-    {
-      "bbox": [x1, y1, x2, y2],
-      "confidence": 0.99,
-      "landmarks": [[x1, y1], [x2, y2], ...],
-      "age": 25,
-      "gender": "Male"
-    }
-  ],
-  "count": 1
-}
-```
-
-#### POST /api/detect/webcam
-Deteksi wajah dari webcam capture (base64).
-
-**Request Body:**
-```json
-{
-  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
-}
-```
-
-#### POST /api/detect/image/annotated
-Return annotated image dengan bounding boxes.
-
----
-
-### 4. Face Registration API (/api/face)
+### 3. Face Registration API (/api/face)
 
 #### POST /api/face/validate
 Validate face dari image (quality & single face check).
@@ -338,10 +277,10 @@ Delete all face embeddings untuk user.
 
 ---
 
-### 5. Face Recognition API (/api/detect/recognize)
+### 4. Face Recognition API (/api/identify/recognize)
 
-#### POST /api/detect/recognize
-Detect dan recognize faces dalam image (combined detection + identification).
+#### POST /api/identify/recognize
+Detect dan recognize multiple faces dalam image (N:N matching - combined detection + identification).
 
 **Request Body:**
 ```json
@@ -354,32 +293,42 @@ Detect dan recognize faces dalam image (combined detection + identification).
 **Response:**
 ```json
 {
-  "faces": [
-    {
-      "bbox": [x1, y1, x2, y2],
-      "confidence": 0.99,
-      "identified": true,
-      "name": "John Doe",
-      "email": "john@example.com",
-      "user_id": 1,
-      "confidence": 0.875
-    },
-    {
-      "bbox": [x1, y1, x2, y2],
-      "confidence": 0.95,
-      "identified": false,
-      "name": "Unknown",
-      "confidence": 0.0
-    }
-  ],
-  "count": 2,
-  "image_shape": [480, 640, 3]
+  "success": true,
+  "message": "Detected 2 face(s), identified 1",
+  "data": {
+    "faces": [
+      {
+        "bbox": [x1, y1, x2, y2],
+        "detection_confidence": 99.5,
+        "age": 25,
+        "gender": "Male",
+        "identified": true,
+        "user_id": 1,
+        "user_name": "John Doe",
+        "user_email": "john@example.com",
+        "confidence": 87.5
+      },
+      {
+        "bbox": [x1, y1, x2, y2],
+        "detection_confidence": 95.0,
+        "age": 30,
+        "gender": "Female",
+        "identified": false,
+        "user_id": null,
+        "user_name": null,
+        "user_email": null,
+        "confidence": 45.2
+      }
+    ],
+    "count": 2,
+    "image_shape": [480, 640, 3]
+  }
 }
 ```
 
 ---
 
-### 6. Authentication API (/api/auth)
+### 5. Authentication API (/api/auth)
 
 #### POST /api/auth/login
 Login dengan username & password.
@@ -458,7 +407,7 @@ Authorization: Bearer <token>
 
 ---
 
-### 7. Attendance API (/api/attendance)
+### 6. Attendance API (/api/attendance)
 
 #### POST /api/attendance/face-single
 Record attendance untuk specific user (1:1).
@@ -557,7 +506,7 @@ Get attendance logs untuk specific user.
 
 ---
 
-### 8. Face Identification API (/api/identify)
+### 7. Face Identification API (/api/identify)
 
 #### POST /api/identify/
 Identify face dari image (1:N matching - compare dengan semua user).
@@ -633,7 +582,7 @@ Verify face matches specific user (1:1 verification).
 ### 1. Landing Page (`/`)
 - Navigation ke semua fitur aplikasi
 - Protected dashboard access
-- Feature cards: Detection, Recognition, Attendance, Users
+- Feature cards: Recognition, Registration, Attendance, Users
 
 ### 2. Login Page (`/login`)
 - **Standard Login**: Email + Password authentication
@@ -647,26 +596,6 @@ Verify face matches specific user (1:1 verification).
 - Quick access ke semua features
 - User profile display
 - Logout functionality
-
-### 4. Face Detection Page (`/face-detection`)
-- **3-Tab Navigation**:
-  1. **Upload Image**: Drag & drop atau file selector
-  2. **Webcam**: Standard single capture mode
-  3. **Webcam Continuous**: Popup dengan dual canvas
-- **Webcam Continuous Popup Features**:
-  - Dual canvas architecture (input + output)
-  - Downscaling 320px untuk accurate bounding boxes
-  - Auto-detection dengan interval
-  - Summary stats (total detected, detection rate)
-  - Latest detection display
-- **Visual Features**:
-  - Green bounding boxes
-  - Confidence scores
-  - Face count display
-  - Confidence score display
-  - Facial landmarks (red dots)
-  - Age & gender prediction
-  - Face count & detection info
 
 ### 4. User Management Page (`/users`)
 - **User Table dengan Pagination** (15 users per page)
@@ -722,20 +651,7 @@ Verify face matches specific user (1:1 verification).
   - Cannot record within 2 hours (duplicate prevention)
   - Timestamp & confidence score recording
 
-### 7. User Management Page (`/users`)
-- **User Table dengan Pagination** (15 users per page)
-- **Face Registration Status**: 
-  - ✅ Registered (X) - Hijau
-  - ❌ Not Registered - Merah
-- **CRUD Operations**:
-  - Add New User
-  - Edit User
-  - Delete User (cascade delete embeddings)
-- **Action Buttons**:
-  - 📷 Register Face - Navigate ke registration page
-  - 🔍 Predict - Navigate ke prediction page (only for registered users)
-
-### 8. Face Registration Page (`/users/:userId/register-face`)
+### 7. Face Registration Page (`/users/:userId/register-face`)
 - **Camera Control**: Start/Stop webcam
 - **🎯 Oval Face Guide**: 
   - Visual template berbentuk oval untuk optimal positioning
@@ -756,7 +672,7 @@ Verify face matches specific user (1:1 verification).
   - Target: 5-10 images per user
 - **Submit**: Register semua captures ke database
 
-### 9. Face Prediction Page (`/users/:userId/predict`)
+### 8. Face Prediction Page (`/users/:userId/predict`)
 - **Camera Capture**: Webcam integration
 - **🎯 Oval Face Guide**:
   - Same visual template untuk consistency
@@ -827,19 +743,20 @@ face-recognition/
 │   │   ├── api/
 │   │   │   ├── __init__.py
 │   │   │   ├── halo.py                    # Halo API endpoints
-│   │   │   ├── detect.py                  # Face detection & recognition
 │   │   │   ├── users.py                   # User CRUD endpoints
 │   │   │   ├── auth.py                    # Authentication (login, face-login)
 │   │   │   ├── face_registration.py       # Face registration endpoints
-│   │   │   └── face_identification.py     # Face identification endpoints
+│   │   │   ├── face_identification.py     # Face identification & recognition
+│   │   │   └── attendance.py              # Attendance endpoints
 │   │   ├── services/
 │   │   │   ├── __init__.py
 │   │   │   ├── halo_service.py
-│   │   │   ├── detection_service.py       # Face detection logic
+│   │   │   ├── detection_service.py       # Face detection utilities (internal)
 │   │   │   ├── user_service.py            # User CRUD logic
 │   │   │   ├── auth_service.py            # Authentication & JWT logic
 │   │   │   ├── recognition_service.py     # Face registration logic
-│   │   │   └── identification_service.py  # Face matching logic
+│   │   │   ├── identification_service.py  # Face matching & recognition
+│   │   │   └── attendance_service.py      # Attendance logic
 │   │   ├── utils/
 │   │   │   ├── db.py                      # Database helpers
 │   │   │   ├── logger.py                  # Logging
@@ -856,7 +773,6 @@ face-recognition/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/                    # 🔄 REFACTORED: Shared UI components
-│   │   │   ├── FaceDetection.jsx
 │   │   │   ├── FaceRecognition.jsx
 │   │   │   ├── ProtectedRoute.jsx         # Auth protection
 │   │   │   ├── CameraPreview.jsx          # ✨ NEW: Reusable camera component
@@ -874,8 +790,6 @@ face-recognition/
 │   │   │   ├── LoginPopup1N.jsx           # 🔄 Uses useCamera hook (329→265 lines, -21%)
 │   │   │   ├── Dashboard.jsx
 │   │   │   ├── FaceLoginPopup.jsx
-│   │   │   ├── FaceDetectionPage.jsx      # 3 tabs
-│   │   │   ├── FaceDetectionContinuousPopup.jsx
 │   │   │   ├── FaceRecognitionPage.jsx    # 2 tabs
 │   │   │   ├── FaceRecognitionOptimizedPopup.jsx
 │   │   │   ├── AttendancePage.jsx         # 5 tabs
@@ -893,7 +807,6 @@ face-recognition/
 │   │   ├── utils/
 │   │   │   ├── popupAuth.js
 │   │   │   ├── popupAttendance.js
-│   │   │   ├── popupDetection.js
 │   │   │   └── popupRecognition.js
 │   │   ├── App.jsx
 │   │   ├── App.css
@@ -1029,20 +942,7 @@ curl -X POST http://localhost:5000/api/identify/ \
    - Hasil tampil di panel kanan dengan confidence bar
 ```
 
-### 5. Face Detection
-```
-1. Navigate ke /face-detection
-2. Pilih tab:
-   - Upload Image: Drag & drop file
-   - Webcam: Single capture detection
-   - Webcam Continuous: Popup dengan dual canvas
-3. Webcam Continuous features:
-   - Auto-detection dengan downscaling 320px
-   - Summary stats (total detected, detection rate)
-   - Accurate bounding boxes
-```
-
-### 6. Face Attendance
+### 5. Face Attendance
 ```
 1. Navigate ke /attendance
 2. Pilih mode (5 tabs):

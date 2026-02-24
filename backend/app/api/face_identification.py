@@ -2,7 +2,7 @@
 from flask_restx import Namespace, Resource, fields
 from flask import request
 
-from services.identification_service import identify_face, verify_face
+from services.identification_service import identify_face, verify_face, recognize_multiple_faces
 from utils.response import success_response, error_response
 from utils.logger import logger
 from utils.validators import validate_threshold, validate_base64_image, validate_user_id
@@ -123,5 +123,46 @@ class VerifyFace(Resource):
             data['user_id'],
             threshold
         )
+        
+        return success_response(message, result)
+
+
+@api.route("/recognize")
+class RecognizeMultipleFaces(Resource):
+    """Multiple face recognition endpoint - detect and identify all faces"""
+    
+    @api.doc("recognize_multiple_faces")
+    @api.expect(identify_input)
+    @api.response(200, "Success - All faces detected and identified")
+    @api.response(400, "Bad Request")
+    @handle_exceptions
+    def post(self):
+        """
+        Detect all faces in image and identify each one against database (N:N matching)
+        
+        Returns list of all detected faces with identification results.
+        """
+        data = request.json
+        
+        # Validate request
+        if not data or 'image' not in data:
+            return error_response("No image data provided")
+        
+        # Validate image data
+        is_valid, error = validate_base64_image(data['image'])
+        if not is_valid:
+            return error_response(error)
+        
+        # Get and validate threshold
+        threshold = data.get('threshold', FaceRecognition.DEFAULT_SIMILARITY_THRESHOLD)
+        is_valid, error = validate_threshold(threshold)
+        if not is_valid:
+            return error_response(error)
+        
+        # Perform multi-face recognition
+        success, message, result = recognize_multiple_faces(data['image'], threshold)
+        
+        if not success:
+            return error_response(message)
         
         return success_response(message, result)

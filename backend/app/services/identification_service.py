@@ -272,3 +272,129 @@ def verify_face(
     except Exception as e:
         logger.error(f"Error in verify_face: {str(e)}")
         return False, f"Verification error: {str(e)}", None
+
+
+def recognize_multiple_faces(
+    base64_image: str,
+    threshold: float = FaceRecognition.DEFAULT_SIMILARITY_THRESHOLD
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Detect all faces in image and identify each one (N:N matching)
+    
+    Args:
+        base64_image: Base64 encoded image string
+        threshold: Similarity threshold for matching
+        
+    Returns:
+        Tuple of (success, message, result_data)
+    """
+    try:
+        # Decode image
+        img = decode_base64_image(base64_image)
+        if img is None:
+            return False, "Invalid image data", None
+        
+        # Get face analyzer
+        app = get_face_analyzer()
+        faces = app.get(img)
+        
+        if len(faces) == 0:
+            return True, "No faces detected", {
+                'faces': [],
+                'count': 0,
+                'image_shape': list(img.shape)
+            }
+        
+        # Import find_best_match for identification
+        from services.recognition_service import find_best_match
+        
+        # Get all registered faces from database (cache for efficiency)
+        with get_db_connection() as conn:
+            cursor = get_db_cursor(conn)
+            cursor.execute("""
+                SELECT 
+                    fe.id,
+                    fe.user_id,
+                    fe.embedding,
+                    fe.quality_score,
+                    u.name,
+                    u.email
+                FROM face_embeddings fe
+                JOIN users u ON fe.user_id = u.id
+                ORDER BY fe.user_id
+            """)
+            
+            db_faces = cursor.fetchall()
+        
+        # Process each detected face
+        recognized_faces = []
+        
+        for i, face in enumerate(faces):
+            # Extract face info
+            bbox = face.bbox.astype(int).tolist()  # [x1, y1, x2, y2]
+            det_score = float(face.det_score)
+            
+            # Extract embedding
+            embedding = face.normed_embedding
+            
+            # Face base info
+            face_info = {
+                'bbox': bbox,
+                'detection_confidence': round(det_score * 100, 2),
+                'age': int(face.age) if hasattr(face, 'age') else None,
+                'gender': 'Male' if (hasattr(face, 'gender') and face.gender == 1) else 'Female' if hasattr(face, 'gender') else None
+            }
+            
+            if embedding is None or det_score < FaceRecognition.MIN_DETECTION_CONFIDENCE:
+                # Low quality face, mark as unknown
+                recognized_faces.append({
+                    **face_info,
+                    'identified': False,
+                    'user_id': None,
+                    'user_name': None,
+                    'user_email': None,
+                    'confidence': 0.0
+                })
+                continue
+            
+            # Try to identify this face
+            logger.info(f"Processing face {i+1}/{len(faces)}: Attempting identification")
+            success, message, match_result = find_best_match(embedding, threshold)
+            
+            if success and match_result.get('identified'):
+                # Face identified
+                recognized_faces.append({
+                    **face_info,
+                    'identified': True,
+                    'user_id': match_result.get('user_id'),
+                    'user_name': match_result.get('user_name'),
+                    'user_email': match_result.get('user_email'),
+                    'confidence': match_result.get('confidence', 0.0)
+                })
+                logger.info(f"Face {i+1}: Identified as {match_result.get('user_name')}")
+            else:
+                # Face not identified
+                recognized_faces.append({
+                    **face_info,
+                    'identified': False,
+                    'user_id': None,
+                    'user_name': None,
+                    'user_email': None,
+                    'confidence': match_result.get('confidence', 0.0) if match_result else 0.0
+                })
+                logger.info(f"Face {i+1}: Not identified")
+        
+        result = {
+            'faces': recognized_faces,
+            'count': len(recognized_faces),
+            'image_shape': list(img.shape)
+        }
+        
+        identified_count = sum(1 for f in recognized_faces if f['identified'])
+        message = f"Detected {len(recognized_faces)} face(s), identified {identified_count}"
+        
+        return True, message, result
+        
+    except Exception as e:
+        logger.error(f"Error in recognize_multiple_faces: {str(e)}")
+        return False, f"Recognition error: {str(e)}", None

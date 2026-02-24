@@ -23,14 +23,15 @@ export const faceApi = {
     return data
   },
 
-  async identifyFace(imageBase64) {
-    const response = await fetch(`${API_BASE_URL}/detect/recognize`, {
+  async identifyFace(imageBase64, threshold = 0.6) {
+    const response = await fetch(`${API_BASE_URL}/identify/recognize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: imageBase64 })
+      body: JSON.stringify({ image: imageBase64, threshold })
     })
-    const data = await response.json()
-    return data
+    const result = await response.json()
+    // Return data directly for backward compatibility
+    return result.data || result
   },
 
   async verifyFace(imageBase64, userId, threshold = 0.6) {

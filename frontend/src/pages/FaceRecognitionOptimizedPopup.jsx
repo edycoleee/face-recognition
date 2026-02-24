@@ -116,18 +116,19 @@ function FaceRecognitionOptimizedPopup() {
       // Step 3: Convert to base64
       const base64Image = tempCanvas.toDataURL('image/jpeg', 0.6)
 
-      // Step 4: Call recognition API
-      const response = await fetch(`${API_BASE_URL}/detect/recognize`, {
+      // Step 4: Call recognition API (new endpoint)
+      const response = await fetch(`${API_BASE_URL}/identify/recognize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image })
+        body: JSON.stringify({ image: base64Image, threshold: 0.6 })
       })
 
       if (!response.ok) {
         throw new Error('Recognition failed')
       }
 
-      const data = await response.json()
+      const result = await response.json()
+      const data = result.data || result
 
       // Step 5: Draw on output canvas
       outputCanvas.width = video.videoWidth
